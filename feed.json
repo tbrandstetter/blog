@@ -1,0 +1,14 @@
+{
+    "version": "https://jsonfeed.org/version/1",
+    "title": "No Rocket Science",
+    "description": "",
+    "home_page_url": "https://norocketscience.at",
+    "feed_url": "https://norocketscience.at/feed.json",
+    "user_comment": "",
+    "icon": "https://norocketscience.at/media/website/logo_dark.png",
+    "author": {
+        "name": "Thomas Brandstetter"
+    },
+    "items": [
+    ]
+}

@@ -3,12 +3,434 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-01-29T08:59:28+01:00</updated>
+    <updated>2026-01-29T11:09:22+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
     <id>https://norocketscience.at</id>
 
+    <entry>
+        <title>Install Proxmox virtual machines with Terraform</title>
+        <author>
+            <name>Thomas Brandstetter</name>
+        </author>
+        <link href="https://norocketscience.at/install-proxmox-virtual-machines-with-terraform-2/"/>
+        <id>https://norocketscience.at/install-proxmox-virtual-machines-with-terraform-2/</id>
+        <media:content url="https://norocketscience.at/media/posts/5/dominik-vanyi-Mk2ls9UBO2E-unsplash.jpg" medium="image" />
+            <category term="terraform"/>
+            <category term="proxmox"/>
+
+        <updated>2019-12-31T09:47:00+01:00</updated>
+            <summary type="html">
+                <![CDATA[
+                        <img src="https://norocketscience.at/media/posts/5/dominik-vanyi-Mk2ls9UBO2E-unsplash.jpg" alt="" />
+                    A few words about Terraform If you have read my last blog post you already know how to create templates for further provisioning using the Cloud-init specification. In this post I like to show you how you easily deploy your infrastructure using Terraform on the&hellip;
+                ]]>
+            </summary>
+        <content type="html">
+            <![CDATA[
+                    <p><img src="https://norocketscience.at/media/posts/5/dominik-vanyi-Mk2ls9UBO2E-unsplash.jpg" class="type:primaryImage" alt="" /></p>
+                
+    <h2 id="a-few-words-about-terraform">
+      A few words about Terraform
+    </h2>
+
+  <p>
+    If you have read my <a href="https://norocketscience.at/about/">last blog post</a> you already know how to create templates for further provisioning using the Cloud-init specification. In this post I like to show you how you easily deploy your infrastructure using Terraform on the virtualisation solution Proxmox. First of all, what is Terraform exactly? Terraform is a so called "Infrastructure as a code" software developed by <a href="https://www.hashicorp.com">Hashicorp</a> - a company which also created <a href="https://www.vagrantup.com">Vagrant</a> and other famous tools for professional cloud solutions. According to <a href="https://docs.microsoft.com/en-us/azure/devops/learn/what-is-infrastructure-as-code">Microsoft</a>,<br>
+  </p>
+
+    <blockquote class="blockquote">
+      Infrastructure as Code (IaC) is the management of infrastructure (networks, virtual machines, load balancers, and connection topology) in a descriptive model, using the same versioning as DevOps team uses for source code.<br>
+    </blockquote>
+
+  <p>
+    What's the benefit you may ask. One of the biggest advantages is that you don't have to install your servers and other components manually. Instead, with just a few lines of code you're able to manage your complete infrastructure. This automation step brings your stability, quality improvements, resilience and time for more important things. Furthermore, you have the possibility to integrate your Terraform configuration into your existing VCS and automatically run changes through your infrastructure with a proper CI/CD pipeline.<br>
+  </p>
+
+  <p>
+    Another good question - why use Terraform if you've already have Ansible in place?Have you ever tried to remove a package in Ansible? If you just remove it from you playbook configuration it is still on your server until you write the right configuration (the attribute "absent" is your friend) or remove it manualy. Terraform takes care on this changes and has a clever dependency management for "First this, then that" decisions. Writing about the differences between the two would hijack my "Terraform practicing" article, so to keep a long story short:
+  </p>
+
+  <ul>
+    <li>Use Terraform for all your infrastructure stuff (VMs and the baseline software on it)</li><li>Use Ansible for the configuration management (Installation of Applications and the configuration of it)</li>
+  </ul>
+
+    <h2 id="lets-start-practicing">
+      Let's start practicing
+    </h2>
+
+    <h3 id="assumptions">
+      Assumptions
+    </h3>
+
+  <ul>
+    <li>You have already a Proxmox server installed (it works with other virtualisation and cloud providers too - but this article is about Proxmox and Terraform)</li><li>You have already OS-templates with Cloud-init defined (if not, please read my <a href="https://norocketscience.at/about/">blog post</a> about it)</li>
+  </ul>
+
+    <h3 id="installation-of-terraform">
+      Installation of Terraform
+    </h3>
+
+  <p>
+    You can install Terraform on the major plattforms using either the package manager/appstore from the chosen system or download the binaries from <br><a href="https://developer.hashicorp.com/terraform/install">Hashicorp</a> directly. On OSX I used <a href="https://brew.sh/">Homebrew</a>, which is a package manager for OSX.
+  </p>
+<pre class="line-numbers  language-bash"><code>bash
+brew install terraform</code></pre>
+
+    <h3 id="configure-your-first-terraform-project">
+      Configure your first Terraform project
+    </h3>
+
+  <p>
+    Now we're going to configure our first Terraform infrastructure which runs on Proxmox. In my example, I like to install a small Kubernetes infrastructure which should run <a href="https://k3s.io/">K3s (a lightweight Kubernetes distribution)</a> later on. For that <br>we have to define the following environment:<br>
+  </p>
+
+  <ul>
+    <li>1 x Master Server</li><li>2 x Node Server</li><li>1 x Storage Server (for persistent storage)</li>
+  </ul>
+
+    <h4 id="configure-the-proxmox-provider">
+      Configure the Proxmox provider
+    </h4>
+
+  <p>
+    First, we configure the connection settings for the Proxmox provider. I chose the provider from <a href="https://github.com/Telmate/terraform-provider-proxmox">Telmate</a> for the Proxmox provisioning. For better readability of our infrastructure code, we split variables and provider in two different configuration files named <em></em><strong><em>variables.tf</em> </strong>and <strong><em>provider.tf</em></strong>
+  </p>
+<pre class="line-numbers  language-json"><code># variables.tf
+
+variable "pm_api_url" {
+  default = "https://your-ip:8006/api2/json"
+}
+
+variable "pm_user" {
+  default = "terraform-prov@pve"
+}
+
+variable "pm_password" {
+  default = "your-password"
+}
+</code></pre>
+<pre class="line-numbers  language-json"><code># provider.tf
+
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "3.0.2-rc07"
+    }
+  }
+}
+
+provider "proxmox" {
+  pm_parallel     = 1
+  pm_tls_insecure = true
+  pm_api_url      = var.pm_api_url
+  pm_password     = var.pm_password
+  pm_user         = var.pm_user
+  pm_log_enable   = true
+  pm_log_file     = "terraform-plugin-proxmox.log"
+  pm_debug        = true
+  pm_log_levels = {
+    _default    = "debug"
+    _capturelog = ""
+  }
+}
+</code></pre>
+
+    <h4 id="configure-the-virtual-machines">
+      Configure the virtual machines
+    </h4>
+
+  <p>
+    Next step is the main configuration of our k3s-cluster server. Here you have to adapt the following attributes according to your configuration:
+  </p>
+
+  <ul>
+    <li>target_node (the name of your Proxmox instance)</li><li>name (the name of the virtual server)</li><li>clone (the name of the template in Proxmox)</li><li>cores</li><li>memory</li><li>storage (the right storage pool in Proxmox)</li><li>ipconfig0 (Use the right IP range for your servers - the count.index is necessary if you have more then one server configured - like the k3s_agents in the example below)</li>
+  </ul>
+
+  <p>
+    The "ignore changes" lifecycle block is necessary, because Terraform likes to change the mac address on the second run - maybe a problem in the Proxmox provider - see here: <a href="https://github.com/Telmate/terraform-provider-proxmox/issues/112">https://github.com/Telmate/terraform-provider-proxmox/issues/112</a>
+  </p>
+<pre class="line-numbers  language-json"><code># main.cf
+
+resource "proxmox_vm_qemu" "k3s_server" {
+  count             = 1
+  name              = "kubernetes-master-${count.index}"
+  target_node       = "homelab"
+
+  clone             = "ubuntu-2404-cloudinit-template"
+
+  os_type           = "cloud-init"
+  cpu {
+    cores             = 4
+    sockets           = "1"
+    type               = "host"
+  }
+  memory            = 1024
+  scsihw            = "virtio-scsi-pci"
+  boot              = "order=scsi0"
+
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          size     = "20G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  network {
+    id              = 0
+    model           = "virtio"
+    bridge          = "vmbr0"
+  }
+
+  lifecycle {
+    ignore_changes  = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0         = "ip=192.168.2.11${count.index + 1}/24,gw=192.168.2.1"
+
+  sshkeys = &lt;&lt;EOF
+  ${var.ssh_key}
+  EOF
+}
+
+resource "proxmox_vm_qemu" "k3s_agent" {
+  count             = 2
+  name              = "kubernetes-node-${count.index}"
+  target_node       = "homelab"
+
+  clone             = "ubuntu-2404-cloudinit-template"
+
+  os_type           = "cloud-init"
+  cpu {
+    cores             = 4
+    sockets           = "1"
+    type               = "host"
+  }
+  memory            = 1024
+  scsihw            = "virtio-scsi-pci"
+  boot              = "order=scsi0"
+
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          size     = "20G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  network {
+    id              = 0
+    model           = "virtio"
+    bridge          = "vmbr0"
+  }
+
+  lifecycle {
+    ignore_changes  = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0         = "ip=192.168.2.12${count.index + 1}/24,gw=192.168.2.1"
+
+  sshkeys = &lt;&lt;EOF
+  ${var.ssh_key}
+  EOF
+}
+
+resource "proxmox_vm_qemu" "storage" {
+  count             = 1
+  name              = "storage-node-${count.index}"
+  target_node       = "homelab"
+
+  clone             = "ubuntu-2404-cloudinit-template"
+
+  os_type           = "cloud-init"
+  cpu {
+    cores             = 4
+    sockets           = "1"
+    type               = "host"
+  }
+  memory            = 1024
+  scsihw            = "virtio-scsi-pci"
+  boot              = "order=scsi0"
+
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          size     = "20G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  network {
+    id              = 0
+    model           = "virtio"
+    bridge          = "vmbr0"
+  }
+
+  lifecycle {
+    ignore_changes  = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0         = "ip=192.168.2.13${count.index + 1}/24,gw=192.168.2.1"
+
+  sshkeys = &lt;&lt;EOF
+  ${var.ssh_key}
+  EOF
+}</code></pre>
+
+    <h4 id="add-ssh-pubkey-for-cloud-init">
+      Add ssh-pubkey for Cloud-init
+    </h4>
+
+  <p>
+    To get passwordless login (useful for tools like Ansible), create a variable with your ssh_key in the <strong><em>variables.tf</em></strong> file:
+  </p>
+<pre class="line-numbers  language-json"><code># variables.tf
+
+variable "ssh_key" {
+  default = "ssh-rsa ..."
+}
+</code></pre>
+
+    <h3 id="deployment-time">
+      Deployment time
+    </h3>
+
+  <p>
+    Terraform has a simple but powerful deployment cycle, which consists of the following steps:
+  </p>
+
+  <ul>
+    <li>Init - Initializes the Terraform project and install needed plugins, dependencies...</li><li>Validate - Validates the syntax of the created Terraform .tf files</li><li>Plan - Calculates the steps and changes to install/upgrade your infrastructure</li><li>Apply - Applies the changes on the configured systems</li>
+  </ul>
+
+  <p>
+    If you try to skip a step for example start with terraform plan, Terraform inform you to initialise the project first:
+  </p>
+<pre class="line-numbers  language-bash"><code>Error: Could not satisfy plugin requirements
+
+
+Plugin reinitialization required. Please run "terraform init".
+
+Plugins are external binaries that Terraform uses to access and manipulate
+resources. The configuration provided requires plugins which can't be located,
+don't satisfy the version constraints, or are otherwise incompatible.
+
+Terraform automatically discovers provider requirements from your
+configuration, including providers used in child modules. To see the
+requirements and constraints from each module, run "terraform providers".
+
+
+
+Error: provider.proxmox: new or changed plugin executable</code></pre>
+
+  <p>
+    So let's start with the initialisation first:
+  </p>
+<pre class="line-numbers  language-bash"><code>terraform init
+
+Initializing the backend...
+
+Initializing provider plugins...
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.</code></pre>
+
+  <p>
+    And Terraform informs you about the next step. But instead we like to check if our configuration ist correct:
+  </p>
+<pre class="line-numbers  language-bash"><code>terraform validate
+
+Success! The configuration is valid.</code></pre>
+
+  <p>
+    Seems we did a good job during our configuration. Now it's the time to see what Terraform likes to deploy:
+  </p>
+<pre class="line-numbers  language-bash"><code>terraform plan
+
+Refreshing Terraform state in-memory prior to plan...
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+.
+.
+.
+.
+
+Plan: 4 to add, 0 to change, 0 to destroy.
+
+------------------------------------------------------------------------
+
+This plan was saved to: planfile
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "planfile"
+</code></pre>
+
+  <p>
+    As you can see - Terraform likes to install 4 new server. It also shows us the detailed configuration. The configuration can be read like a "diff" file:
+  </p>
+
+  <ul>
+    <li>"+" means add</li><li>"-" means remove</li><li>"~" means replaced</li>
+  </ul>
+
+  <p>
+    The file "planfile" can be used for the next apply command:
+  </p>
+<pre class="line-numbers  language-bash"><code>terraform apply planfile
+
+Apply complete! Resources: 4 added, 0 changed, 0 destroyed.
+
+The state of your infrastructure has been saved to the path
+below. This state is required to modify and destroy your
+infrastructure, so keep it safe. To inspect the complete state
+use the `terraform show` command.
+
+State path: terraform.tfstate</code></pre>
+
+  <p>
+    Depending on your hardware this needs some time. If everything runs fine you can see the output above. Terraform successfully created 4 new ressources, which you can use for install the K3s cluster. Because we don't like to install anything manually we will use Ansible for this job. <br><br>But this is another story I have to tell ;-)<br><br>Wish all of you a happy new year!
+  </p>
+            ]]>
+        </content>
+    </entry>
     <entry>
         <title>Deploy Proxmox virtual machines using Cloud-init</title>
         <author>
@@ -16,18 +438,20 @@
         </author>
         <link href="https://norocketscience.at/about/"/>
         <id>https://norocketscience.at/about/</id>
-        <media:content url="https://norocketscience.at/media/posts/1/photo-1526666923127-b2970f64b422.webp" medium="image" />
+        <media:content url="https://norocketscience.at/media/posts/1/Untitled.jpg" medium="image" />
+            <category term="proxmox"/>
+            <category term="cloud-init"/>
 
         <updated>2019-12-02T08:57:00+01:00</updated>
             <summary type="html">
                 <![CDATA[
-                        <img src="https://norocketscience.at/media/posts/1/photo-1526666923127-b2970f64b422.webp" alt="" />
+                        <img src="https://norocketscience.at/media/posts/1/Untitled.jpg" alt="" />
                     Due to performance problems with my ESXI homelab I decided to give the open source solution Proxmox a try. One of my goals was to install all my virtual machines with the Cloud-init solution. With Cloud-init it is possible to inject informations such as ssh&hellip;
                 ]]>
             </summary>
         <content type="html">
             <![CDATA[
-                    <p><img src="https://norocketscience.at/media/posts/1/photo-1526666923127-b2970f64b422.webp" class="type:primaryImage" alt="" /></p>
+                    <p><img src="https://norocketscience.at/media/posts/1/Untitled.jpg" class="type:primaryImage" alt="" /></p>
                 
   <p>
     Due to performance problems with my ESXI homelab I decided to give the open source solution Proxmox a try. One of my goals was to install all my virtual machines with the Cloud-init solution. With Cloud-init it is possible to inject informations such as ssh keys, network information or user profiles in an standarized way at boot time. The benefit of using Cloud-init is the pre-provisioning of necessary configuration items such as a static ip address or a default user with activated ssh public key authentication. Furthermore, this kind of provisioning helps a lot for further automation steps with Ansible or even complete CI/CD pipelines in Gitlab, Jenkins etc. But first, let's start with the VM provisioning steps in Proxmox.

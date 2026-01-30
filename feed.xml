@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-01-30T21:06:44+01:00</updated>
+    <updated>2026-01-30T21:23:38+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -84,7 +84,7 @@
     </h2>
 
     <figure class="post__image post__image--center">
-      <img loading="lazy" src="https://norocketscience.at/media/posts/7/Untitled-Diagram.drawio-6.png" height="1041" width="796" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-xs.png 640w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-sm.png 768w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-md.png 1024w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-lg.png 1366w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-xl.png 1600w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-6-2xl.png 1920w">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/7/Untitled-Diagram.drawio-7.png" height="1041" width="797" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-xs.png 640w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-sm.png 768w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-md.png 1024w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-lg.png 1366w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-xl.png 1600w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-7-2xl.png 1920w">
       
     </figure>
 
@@ -227,14 +227,6 @@
   <p class="msg msg--info">
     Being a non native English speaker, some parts of this text have been written with the support of artificial intelligence.
   </p>
-
-  <p>
-    Related stories:
-  </p>
-
-  <ul>
-    <li>Highly separated Talos Kubernetes Cluster: Part1 - Overview (This post)</li><li>Highly separated Talos Kubernetes Cluster: Part2 - VM installation</li><li>Highly separated Talos Kubernetes Cluster: Part3 - PFSense installation</li><li>Highly separated Talos Kubernetes Cluster: Part4 - MGT Client installation&nbsp;</li><li>Highly separated Talos Kubernetes Cluster: Part5 - PFSense configuration</li><li>Highly separated Talos Kubernetes Cluster: Part6 - Harbor Registry</li><li>Highly separated Talos Kubernetes Cluster: Part7 - Talos Image Factory</li><li>Highly separated Talos Kubernetes Cluster: Part8 - Talos Installation</li><li>Highly separated Talos Kubernetes Cluster: Part9 - Calico</li><li>Highly separated Talos Kubernetes Cluster: Part10 - HAProxy Ingress</li><li>Highly separated Talos Kubernetes Cluster: Part11 - Example app &amp; Summary</li>
-  </ul>
             ]]>
         </content>
     </entry>

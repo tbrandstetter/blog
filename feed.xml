@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-01-30T10:52:31+01:00</updated>
+    <updated>2026-01-30T16:05:06+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -60,7 +60,7 @@
     </h2>
 
   <p>
-    In today's rapidly evolving IT landscape, security and isolation are paramount. An Kubernetes cluster within a dedicated network and internal set up registries provides an additional layer of security by moving the services away from external access points. This setup is particularly useful for organisations handling sensitive data or operating in highly regulated industries.
+    In today's rapidly evolving IT landscape, security and isolation are paramount. A Kubernetes cluster within a dedicated network and internal set up registries provides an additional layer of security by moving the services away from external access points. This setup is particularly useful for organisations handling sensitive data or operating in highly regulated industries.
   </p>
 
     <h2 id="what-are-the-benefits">
@@ -84,7 +84,7 @@
     </h2>
 
     <figure class="post__image post__image--wide">
-      <img loading="lazy" src="https://norocketscience.at/media/posts/7/Untitled-Diagram.drawio.png" height="661" width="1032" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-xs.png 640w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-sm.png 768w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-md.png 1024w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-lg.png 1366w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-xl.png 1600w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2xl.png 1920w">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/7/Untitled-Diagram.drawio-2.png" height="662" width="1031" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-xs.png 640w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-sm.png 768w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-md.png 1024w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-lg.png 1366w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-xl.png 1600w ,https://norocketscience.at/media/posts/7/responsive/Untitled-Diagram.drawio-2-2xl.png 1920w">
       
     </figure>
 
@@ -93,7 +93,7 @@
   </p>
 
   <ul>
-    <li>DMZ - houses the HAProxy and HAProxy Ingress Controller and is used for external traffic to our example application after successful installation</li><li>MGMT - is used for redirect necessary registry traffic and Talos internal image factory functionality. It takes care that Talos has no need to connect to the internet to get the needed images. Furthermore, the management client is installed here to have a convenient place for installation, both through cli and browser gui</li><li>SRV - is reserved for the TALOS cluster installation only.</li>
+    <li><u>DMZ</u> - houses the HAProxy and HAProxy Ingress Controller and is used for external traffic to our example application after successful installation</li><li><u>MGMT</u> - is used for redirect necessary registry traffic and Talos internal image factory functionality. It takes care that Talos has no need to connect to the internet to get the needed images. Furthermore, the management client is installed here to have a convenient place for installation, both through cli and browser gui</li><li><u>SRV</u> - is reserved for the TALOS cluster installation only.</li>
   </ul>
 
   <p>

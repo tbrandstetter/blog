@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-01-30T19:01:14+01:00</updated>
+    <updated>2026-01-30T21:06:44+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -89,7 +89,7 @@
     </figure>
 
   <p>
-    For the lab three networks are defined to support the Kubernetes deployment:
+    So what do we see here? First of all three networks are defined in Proxmox to support the Kubernetes deployment in this lab:
   </p>
 
   <ul>
@@ -97,7 +97,11 @@
   </ul>
 
   <p>
-    All defined networks are secured by pfSense which takes care that only necessary and allowed traffic goes through.
+    All defined networks are secured by pfSense which takes care that only necessary and allowed traffic goes through. The detailed firewall config will be discussed in later parts of this series.
+  </p>
+
+  <p>
+    Out of scope is the network out of Proxmox. The assumption is that you will have two separated lan (vlan or else) definitions to work with. One client lan to get into the management client seamlessly and one server lan where the WAN traffic from pfSense goes through and ingress traffic flows in.
   </p>
 
   <p>
@@ -218,6 +222,10 @@
 
   <p>
     In subsequent posts over the next weeks, I will delve into each component in detail. Stay tuned for our next post, where we'll guide you through preparing your Proxmox environment!
+  </p>
+
+  <p class="msg msg--info">
+    Being a non native English speaker, some parts of this text have been written with the support of artificial intelligence.
   </p>
 
   <p>

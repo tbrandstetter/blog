@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-02-04T07:39:42+01:00</updated>
+    <updated>2026-02-04T07:44:39+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -1079,7 +1079,11 @@ resource "proxmox_vm_qemu" "mgmt-client" {
   </p>
 
   <p>
-    
+    Related posts:
+  </p>
+
+  <p>
+    <a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/">Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</a>
   </p>
             ]]>
         </content>

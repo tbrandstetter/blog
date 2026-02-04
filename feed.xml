@@ -3,14 +3,860 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-01-31T07:43:37+01:00</updated>
+    <updated>2026-02-04T07:39:42+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
     <id>https://norocketscience.at</id>
 
     <entry>
-        <title>Highly separated Talos Kubernetes Cluster: Part1 - Overview</title>
+        <title>Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</title>
+        <author>
+            <name>Thomas Brandstetter</name>
+        </author>
+        <link href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/"/>
+        <id>https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/</id>
+        <media:content url="https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg" medium="image" />
+
+        <updated>2026-01-30T12:26:32+01:00</updated>
+            <summary type="html">
+                <![CDATA[
+                        <img src="https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg" alt="" />
+                    Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up&hellip;
+                ]]>
+            </summary>
+        <content type="html">
+            <![CDATA[
+                    <p><img src="https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg" class="type:primaryImage" alt="" /></p>
+                
+  <p>
+    Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up the network bridges for the different networks.
+  </p>
+
+    <h2 id="system-requirements-for-proxmox">
+      System requirements for Proxmox
+    </h2>
+
+  <p>
+    I used an old Thinkcentre M910 from 2018 for this lab. So the requirements are really low level. A decent amount of ram (32GB) and a not too old cpu should be doing it. The Thinkcentre has only one network interface, so I'm working with vlan's in my setup. If you have two or more interface, you can split the incoming networks (client and server). It depends on your own configuration.
+  </p>
+
+  <p>
+    All configuration needed for this part (excluding the Ubuntu Desktop installation) can be found in my <a href="https://github.com/tbrandstetter/norocketscience-examples/tree/main/talos-kubernetes-cluster-part2">GIT repository</a>.
+  </p>
+
+    <h2 id="creating-a-proxmox-image-templatelessbrgreater">
+      Creating a Proxmox image template<br>
+    </h2>
+
+  <p>
+    One of the first steps is to create an image template that we can use to quickly spin up new virtual machines (VMs) based on cloud-image. This template will serve as our base image for the registry VM in our setup. I already documented the involved steps in my post <a href="https://norocketscience.at/about/">"Deploy Proxmox virtual machines using Cloud-init"</a>
+  </p>
+
+    <h2 id="downloading-necessary-images">
+      Downloading necessary images
+    </h2>
+
+  <p>
+    Next, you’ll need to download images for the following components:
+  </p>
+
+  <p>
+    Ubuntu Desktop: <a href="https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-desktop-amd64.iso">Ubuntu Desktop 24.03.3 LTS Amd64</a><br>PFSense Firewall: <a href="https://atxfiles.netgate.com/mirror/downloads/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz">pfSense CE 2.7.2</a><br>
+  </p>
+
+  <p>
+    You can download it directly through the Proxmox GUI:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox1.jpg" height="750" width="1440" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox1-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/proxmox1-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/proxmox1-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/proxmox1-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/proxmox1-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/proxmox1-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox2.jpg" height="586" width="1196" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/proxmox2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/proxmox2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/proxmox2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/proxmox2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/proxmox2-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Copy the URL for the image into the "URL" field and click "Query URL" - after that you should see the file name which you put into the OpenTofu config in the next steps. Click on "Download" to download the file directly into Proxmox. Continue with all the components listed above.
+  </p>
+
+    <h2 id="configure-keyless-login-for-cloud-init">
+      Configure keyless login for cloud-init
+    </h2>
+
+  <p>
+    You can always add a ssh key to your cloud-init configuration, but for now I'm activating password login for the ubuntu user in the ubuntu cloud images. For this you need to copy the following cloud-init configuration to /var/lib/vz/snippets (you have to create the snippets folder&nbsp;
+  </p>
+<pre class="line-numbers  language-bash"><code>#cloud-config
+users:
+  - name: ubuntu
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+ssh_pwauth: True ## This line enables ssh password authentication</code></pre>
+
+    <h2 id="creating-proxmox-network-bridges">
+      Creating Proxmox network bridges
+    </h2>
+
+  <p>
+    Proper network setup is crucial for implementing the lab. We’ll create multiple network bridges to isolate traffic between different components in conjunction wit pfSense. Remember from the first post we need three different networks:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox3-2.jpg" height="277" width="1310" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox3-2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/proxmox3-2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/proxmox3-2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/proxmox3-2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/proxmox3-2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/proxmox3-2-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox4.jpg" height="257" width="602" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox4-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/proxmox4-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/proxmox4-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/proxmox4-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/proxmox4-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/proxmox4-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    These networks are local only Linux bridges. Means that they don't have any other network ports bridged and cannot communicate outside your Proxmox node. Just add a bridge, fill in the device name <em>vmbrX</em> and the CIDR notation for the network. In my example I used the following network convention:
+  </p>
+
+  <ul>
+    <li>DMZ - dmz.lab.internal 172.16.100.0/24</li><li>MGMT mgmt.lab.internal 192.168.100.0/24</li><li>SRV - srv.lab.internal 10.10.100.0/24</li>
+  </ul>
+
+  <p>
+    Additionally, we have the main network connection, needed for pfSense as <em>WAN</em> port. So all outgoing traffic will go through this one. Normally this is <em>vmbr0</em> in a default installation of Proxmox. For convenience reasons I've created an additional vlan in my home network to create a <em>CLIENT</em> network inside Proxmox to reach the management client (which will be installed later) directly from my home setup. It is possible to achieve this through the default lan connection too, but I didn't like the idea to mix up the functionality and to get a clear cut between INGRESS and EGRESS traffic.
+  </p>
+
+    <h2 id="provisioning-through-opentofu">
+      Provisioning through OpenTofu
+    </h2>
+
+  <p>
+    As stated in the first post I'm going to use <a href="https://opentofu.org">OpenTofu</a> for installation of the VMs. Everyone who uses Terraform should have not problem with OpenTofu which is the Open-Source fork. I'm not going into installation of the cli. This can be found in the <a href="https://opentofu.org/docs/intro/install/">cli installation guide</a> for your environment.
+  </p>
+
+  <p>
+    For the lab the following infrastructure is needed:
+  </p>
+
+  <ul>
+    <li>1 x Management Client</li><li>1 x pfSense Firewall</li><li>1 x HAProxy Ingress</li><li>1 x Registry</li><li>1 x Talos control plane node</li><li>1 x Talos worker node</li>
+  </ul>
+
+  <p>
+    If you are new to Terraform provisioning with Proxmox I can recommend a blog post I've written years ago: <a href="https://norocketscience.at/install-proxmox-virtual-machines-with-terraform-2/">Install Proxmox virtual machines with Terraform</a>&nbsp;The post will guide you through the configuration of the needed provider and describe the lifecycle of a typical provisioning process.
+  </p>
+
+  <p>
+    To speed up the deployment process I've already created a <a href="https://github.com/tbrandstetter/norocketscience-examples/tree/main/talos-kubernetes-cluster-part2">ready to use configuration on in my GIT repository</a>. You just have to change the user/pwd of the api user as well as the Proxmox hostname in the provider config. If you have different image names created during the image download process or use different template names for your Proxmox templates you have to change that, as well as for changed vmbrX network names.
+  </p>
+
+  <p>
+    Be aware that the Talos control plane and the Talos worker node ist <strong>disabled for now</strong>. We're going to enable that and rerun OpenTofu after the Talos image factory has been installed and configured. This is necessary, because we're using SecureBoot and if the images change during installation, you have to reset the bios state.
+  </p>
+
+  <p>
+    Back to business. To start with OpenTofu three different yaml files have to be created:
+  </p>
+
+  <ul>
+    <li>provider.tf --&gt; holds the configuration for the Proxmox provider</li><li>variables.tf --&gt; replaces the placeholder in all other configuration files</li><li>main.tf --&gt; includes all the information about the VMs we're going to provision</li>
+  </ul>
+<pre class="line-numbers  language-json"><code># provider.tf
+
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "3.0.2-rc07"
+    }
+  }
+}
+
+provider "proxmox" {
+  pm_parallel     = 1
+  pm_tls_insecure = true
+  pm_api_url      = var.pm_api_url
+  pm_password     = var.pm_password
+  pm_user         = var.pm_user
+  pm_log_enable   = true
+  pm_log_file     = "terraform-plugin-proxmox.log"
+  pm_debug        = true
+  pm_log_levels = {
+    _default    = "debug"
+    _capturelog = ""
+  }
+}
+</code></pre>
+<pre class="line-numbers  language-json"><code># variables.tf
+
+variable "pm_api_url" {
+  default = "https://fill in your hostname:8006/api2/json"
+}
+
+variable "pm_user" {
+  default = "fill in your user"
+}
+
+variable "pm_password" {
+  default = "fill in your password"
+}
+</code></pre>
+<pre class="line-numbers  language-json"><code># main.tf
+
+# Control Plane
+# resource "proxmox_vm_qemu" "controlplane" {
+#   name        = "talos-cp-${count.index + 1}"
+#   target_node = "proxmox2"
+#   count       = 1
+#   bios        = "ovmf"
+#   agent       = 1
+#   machine     = "q35"
+#   skip_ipv6   = true
+
+#   startup_shutdown {
+#     order             = 3
+#     shutdown_timeout  = -1
+#     startup_delay     = -1
+#   }
+
+#   start_at_node_boot = true
+#   cpu {
+#     cores = 4
+#     sockets = 1
+#     type = "host"
+#   }
+#   memory   = 6144
+#   scsihw   = "virtio-scsi-pci"
+#   boot     = "order=scsi0;ide2"
+
+#   disks {
+#     ide {
+#       ide2 {
+#         cdrom {
+#           iso = "local:iso/metal-amd64-secureboot.iso"
+#         }
+#       }
+#     }
+#     scsi {
+#       scsi0 {
+#         disk {
+#           size     = "64G"
+#           storage  = "data"
+#         }
+#       }
+#     }
+#   }
+
+#   efidisk {
+#     efitype = "4m"
+#     storage = "data"
+#   }
+
+#   network {
+#     model  = "virtio"
+#     bridge = "vmbr3"
+#     firewall = false
+#     link_down = false
+#     id = 1
+#   }
+
+#   rng {
+#     period = 0
+#     source = "/dev/urandom"
+#   }
+
+#   vga {
+#     type   = "std"
+#   }
+# }
+
+# Worker
+# resource "proxmox_vm_qemu" "worker" {
+#   name        = "talos-worker-${count.index +1}"
+#   target_node = "proxmox2"
+#   count       = 1
+#   bios        = "ovmf"
+#   agent       = 1
+#   machine     = "q35"
+#   skip_ipv6   = true
+
+#   startup_shutdown {
+#     order             = 4
+#     shutdown_timeout  = -1
+#     startup_delay     = -1
+#   }
+
+#   start_at_node_boot = true
+#   cpu {
+#     cores = 4
+#     sockets = 1
+#     type = "host"
+#   }
+#   memory   = 8172
+#   scsihw   = "virtio-scsi-pci"
+#   boot     = "order=scsi0;ide2"
+
+#   disks {
+#     ide {
+#       ide2 {
+#         cdrom {
+#           iso = "local:iso/metal-amd64-secureboot.iso"
+#         }
+#       }
+#     }
+#     scsi {
+#       scsi0 {
+#         disk {
+#           size     = "100G"
+#           storage  = "data"
+#         }
+#       }
+#     }
+#   }
+
+#   efidisk {
+#     efitype = "4m"
+#     storage = "data"
+#   }
+
+#   network {
+#     model  = "virtio"
+#     bridge = "vmbr3"
+#     firewall = false
+#     link_down = false
+#     id = 1
+#   }
+
+#   rng {
+#     period = 0
+#     source = "/dev/urandom"
+#   }
+
+#   vga {
+#     type   = "std"
+#   }
+# }
+
+# PFSense Firewall
+resource "proxmox_vm_qemu" "firewall" {
+  name        = "pfsense-${count.index +1}"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 1
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 1
+    sockets = 1
+    type = "host"
+  }
+  memory   = 1024
+  boot     = "order=virtio0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/pfSense-CE-2.7.2-RELEASE-amd64.iso"
+        }
+      }
+    }
+    virtio {
+      virtio0 {
+        disk {
+          size     = "10G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  # WAN
+  network {
+    model  = "virtio"
+    bridge = "vmbr0"
+    firewall = false
+    link_down = false
+    id = 0
+  }
+
+  # MGMT
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  # DMZ
+  network {
+    model  = "virtio"
+    bridge = "vmbr2"
+    firewall = false
+    link_down = false
+    id = 2
+  }
+
+  # SRV
+  network {
+    model  = "virtio"
+    bridge = "vmbr3"
+    firewall = false
+    link_down = false
+    id = 3
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "std"
+  }
+}
+
+# Bastion Host
+resource "proxmox_vm_qemu" "bastion" {
+  name        = "bastion"
+  target_node = "proxmox2"
+  count       = 1
+
+  clone = "ubuntu-24.04-cloud-init-template"
+
+  startup_shutdown {
+    order             = 2
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  os_type  = "cloud-init"
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-single"
+  boot     = "order=scsi0"
+
+  disks {
+    ide {
+      ide0 {
+        cloudinit {
+          storage = "data"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "50G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    id = 0
+  }
+
+  lifecycle {
+    ignore_changes = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0 = "ip=192.168.100.11/24,gw=192.168.100.1"
+  nameserver = "192.168.100.1"
+  searchdomain = "mgmt.lab.internal"
+  cipassword  = "ubuntu"
+  cicustom    = "vendor=local:snippets/ci-custom.yml"
+  ciupgrade   = true 
+}
+
+# HAProxy Ingress Host
+resource "proxmox_vm_qemu" "haproxy-ingess" {
+  name        = "haproxy-ingress-1"
+  target_node = "proxmox2"
+  count       = 1
+
+  clone = "ubuntu-24.04-cloud-init-template"
+
+  startup_shutdown {
+    order             = 5
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  os_type  = "cloud-init"
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-single"
+  boot     = "order=scsi0"
+
+  disks {
+    ide {
+      ide0 {
+        cloudinit {
+          storage = "data"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "50G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr2"
+    id = 0
+  }
+
+  lifecycle {
+    ignore_changes = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0 = "ip=172.16.100.10/24,gw=172.16.100.1"
+  nameserver = "172.16.100.1"
+  searchdomain = "srv.lab.internal"
+  cipassword  = "ubuntu"
+  cicustom    = "vendor=local:snippets/ci-custom.yml"
+  ciupgrade   = true 
+}
+
+
+# Management Client
+resource "proxmox_vm_qemu" "mgmt-client" {
+  name        = "mgmt-client"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  agent       = 1
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 6
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-pci"
+  boot     = "order=scsi0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/ubuntu-24.04.3-desktop-amd64.iso"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "64G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr4"
+    firewall = false
+    link_down = false
+    id = 2
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "virtio"
+    memory = 128
+  }
+}</code></pre>
+
+  <p>
+    After the files have ben set up, the provider needs to be installed first:
+  </p>
+<pre class="line-numbers  language-bash"><code>tofu init
+</code></pre>
+
+  <p>
+    If everything wents fine you should see the following information:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/tofu1.jpg" height="560" width="1938" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/tofu1-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/tofu1-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/tofu1-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/tofu1-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/tofu1-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/tofu1-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Now we can plan our provisioning:
+  </p>
+<pre class="line-numbers  language-bash"><code>tofu plan</code></pre>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/tofu2.jpg" height="264" width="654" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/tofu2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/tofu2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/tofu2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/tofu2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/tofu2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/tofu2-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    There should be only add's for the first run. Last but not least tofu apply will start the provisioning:
+  </p>
+<pre class="line-numbers  language-html"><code>tofu apply</code></pre>
+
+  <p>
+    In the end you should see the new installed VMs in your Proxmox instance (Talos nodes excluded right now!)
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox6.jpg" height="598" width="444" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox6-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/proxmox6-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/proxmox6-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/proxmox6-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/proxmox6-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/proxmox6-2xl.jpg 1920w">
+      
+    </figure>
+
+    <h2 id="install-ubuntu-management-client">
+      Install Ubuntu management client
+    </h2>
+
+  <p>
+    For managing pfSense and as a passthrough for or other VMs I'm using Ubuntu Desktop. I'm not going into detail how to install an Linux desktop system, because on this level we're operating it should be a no brainer. If you need a guidance, there is a great tutorial on&nbsp;<a href="https://thedev.uk/how-to-install-ubuntu-desktop-24-04-1-on-proxmox-a-comprehensive-guide/">thedev.uk</a>
+  </p>
+
+  <p>
+    The key points for the installation are:
+  </p>
+
+  <ul>
+    <li>&nbsp;Use just the Basic Software</li><li>Install 3rd Party Software</li><li>(Optional) Disable Password for Login</li><li>apt install qemu-guest agent ssh<br></li>
+  </ul>
+
+  <p>
+    Additionally, we disabling the automatic gateway setting in the second network interface which sould be the lan/vlan to your homelab client network:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/network1-2.jpg" height="614" width="1956" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/network1-2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/network1-2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/network1-2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/network1-2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/network1-2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/network1-2-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/network2.jpg" height="968" width="1502" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/network2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/network2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/network2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/network2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/network2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/network2-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    This is needed to avoid asynchronous routing between your network outside of Proxmox and pfSense.
+  </p>
+
+    <h2 id="configure-pfsense">
+      Configure pfSense
+    </h2>
+
+  <p>
+    Go to the Proxmox console of your pfSense host and start the installation. You can use the standard values in the installation setup. For the disk filesystem I personally prefer UFS for this lab.
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense7.jpg" height="1058" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense7-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense7-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense7-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense7-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense7-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense7-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense8.jpg" height="1058" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense8-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense8-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense8-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense8-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense8-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense8-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense9.jpg" height="1058" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense9-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense9-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense9-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense9-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense9-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense9-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense10.jpg" height="1058" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense10-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense10-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense10-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense10-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense10-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense10-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense11.jpg" height="1058" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense11-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense11-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense11-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense11-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense11-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense11-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    After a reboot we could enter the initial WAN and MGMT interface configuration so that we can do the rest of the setup over the web browser:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense.jpg" height="1014" width="2332" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Continue this for vtnet2 and vtnet3. The network interfaces in the console should look like this right now
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense13.jpg" height="365" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense13-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense13-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense13-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense13-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense13-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense13-2xl.jpg 1920w">
+      
+    </figure>
+
+  <ul>
+    <li>WAN -&gt; vtnet0 -&gt; v4/DHCP4 -&gt; Server lan ip</li><li>LAN -&gt; vtnet1 -&gt; v4</li><li>OPT1 -&gt; vtnet2 -&gt; v4</li><li>OPT2 -&gt; vtnet3 -&gt; v4</li>
+  </ul>
+
+  <p>
+    To get access to the management gui from the management client, we need to statically set an ip address. For this lab we'll take the ip 192.168.100.1:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense2.jpg" height="582" width="2110" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense2-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense2-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense2-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense2-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense2-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense2-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense3.jpg" height="384" width="1766" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense3-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense3-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense3-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense3-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense3-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense3-2xl.jpg 1920w">
+      
+    </figure>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense17.jpg" height="954" width="1697" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense17-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense17-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense17-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense17-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense17-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense17-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Now you should be able to see the admin interface through the web browser on the management client
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense4.jpg" height="1286" width="2596" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense4-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense4-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense4-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense4-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense4-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense4-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    After typing in admin/pfsense you'll be guided through an initial setup process. On the general information screen (step 2 of 9) enter the following information:
+  </p>
+
+  <ul>
+    <li>hostname: firewall</li><li>domain: mgmt.lab.internal</li><li>dns: "your internal dns" or 8.8.8.8</li>
+  </ul>
+
+  <p>
+    On step 4 of 9 (Configure WAN interface) disable the private network block:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense5.jpg" height="266" width="2300" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense5-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense5-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense5-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense5-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense5-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense5-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    For the rest of the steps the default settings are ok. Before we're configuring the rest of the system update pfSense to the latest version if available. You can do that under System/Update.
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense18.jpg" height="891" width="1851" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense18-xs.jpg 640w ,https://norocketscience.at/media/posts/8/responsive/pfsense18-sm.jpg 768w ,https://norocketscience.at/media/posts/8/responsive/pfsense18-md.jpg 1024w ,https://norocketscience.at/media/posts/8/responsive/pfsense18-lg.jpg 1366w ,https://norocketscience.at/media/posts/8/responsive/pfsense18-xl.jpg 1600w ,https://norocketscience.at/media/posts/8/responsive/pfsense18-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Now that we're finished with the initial configuration. It's time to configure the rest of the system so that we're get our lab to work. For this, I've already prepared a ready to use backup file. To install it go to <em>Diagnostics / Backup &amp; Restore</em> and upload the backup file&nbsp;from the GIT repository.
+  </p>
+
+  <p>
+    A list of the config change are:
+  </p>
+
+  <ul>
+    <li>Proper naming and configuration of all network interfaces</li><li>Activated Kea DHCP server for the lan interfaces</li><li>Activated DNS resolver with static entries for Talos</li><li>Installed and configured FRR package for the BGP config</li><li>FW rules for the whole lab</li>
+  </ul>
+
+  <p>
+    <strong>Please be aware, you have to change the MAC addresses for the static dhcp entries!</strong>
+  </p>
+
+  <p>
+    If everything went fine you should now be able to ssh into the Registry VM through the ip 192.168.100.11 which we need for the next part to install the internal image registry as well as the Talos Image Factory.
+  </p>
+
+  <p>
+    Stay tuned and leave me a <a href="https://tinyurl.com/4atbveyr">comment on LinkedIn</a> for any problems or suggestions you have.
+  </p>
+
+  <p>
+    Related posts:
+  </p>
+
+  <p>
+    <a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part1 - Overview</a>
+  </p>
+            ]]>
+        </content>
+    </entry>
+    <entry>
+        <title>Highly separated Talos Kubernetes Cluster: Part 1 - Overview</title>
         <author>
             <name>Thomas Brandstetter</name>
         </author>
@@ -317,6 +1163,28 @@ brew install terraform</code></pre>
   <ul>
     <li>1 x Master Server</li><li>2 x Node Server</li><li>1 x Storage Server (for persistent storage)</li>
   </ul>
+
+    <h4 id="create-the-proxmox-api-user">
+      Create the Proxmox api user
+    </h4>
+
+  <p>
+    A prerequisite for using the Proxmox provider is a working user with the right permissions in Proxmox. Go to the Datacenter/Permissions/User settings in Proxmox and add a user. Make sure to use the <u>Proxmox VE Authentication server setting</u>:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/5/proxmox.jpg" height="388" width="754" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/5/responsive/proxmox-xs.jpg 640w ,https://norocketscience.at/media/posts/5/responsive/proxmox-sm.jpg 768w ,https://norocketscience.at/media/posts/5/responsive/proxmox-md.jpg 1024w ,https://norocketscience.at/media/posts/5/responsive/proxmox-lg.jpg 1366w ,https://norocketscience.at/media/posts/5/responsive/proxmox-xl.jpg 1600w ,https://norocketscience.at/media/posts/5/responsive/proxmox-2xl.jpg 1920w">
+      
+    </figure>
+
+  <p>
+    Under Datacenter/Permissions/Roles you can assign the necessary roles for the specific user. The actual permission list can be found on the <a href="https://search.opentofu.org/provider/telmate/proxmox/latest">provider</a> side too:
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/5/proxmox5.jpg" height="197" width="2330" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/5/responsive/proxmox5-xs.jpg 640w ,https://norocketscience.at/media/posts/5/responsive/proxmox5-sm.jpg 768w ,https://norocketscience.at/media/posts/5/responsive/proxmox5-md.jpg 1024w ,https://norocketscience.at/media/posts/5/responsive/proxmox5-lg.jpg 1366w ,https://norocketscience.at/media/posts/5/responsive/proxmox5-xl.jpg 1600w ,https://norocketscience.at/media/posts/5/responsive/proxmox5-2xl.jpg 1920w">
+      
+    </figure>
 
     <h4 id="configure-the-proxmox-provider">
       Configure the Proxmox provider

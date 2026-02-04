@@ -1,0 +1,1091 @@
+<!DOCTYPE html><html lang="en-gb"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Highly separated Talos Kubernetes Cluster: Part 2 - VM installation - No Rocket Science</title><meta name="description" content="Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up&hellip;"><meta name="generator" content="Publii Open-Source CMS for Static Site"><link rel="canonical" href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/"><link rel="alternate" type="application/atom+xml" href="https://norocketscience.at/feed.xml" title="No Rocket Science - RSS"><link rel="alternate" type="application/json" href="https://norocketscience.at/feed.json" title="No Rocket Science - JSON"><meta property="og:title" content="Highly separated Talos Kubernetes Cluster: Part 2 - VM installation"><meta property="og:image" content="https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg"><meta property="og:image:width" content="1920"><meta property="og:image:height" content="1439"><meta property="og:site_name" content="No Rocket Science"><meta property="og:description" content="Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up&hellip;"><meta property="og:url" content="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/"><meta property="og:type" content="article"><link rel="stylesheet" href="https://norocketscience.at/assets/css/style.css?v=edb3e68ed34e64f3d75569ba560e8432"><script type="application/ld+json">{"@context":"http://schema.org","@type":"Article","mainEntityOfPage":{"@type":"WebPage","@id":"https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/"},"headline":"Highly separated Talos Kubernetes Cluster: Part 2 - VM installation","datePublished":"2026-01-30T12:26+01:00","dateModified":"2026-02-04T07:39+01:00","image":{"@type":"ImageObject","url":"https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg","height":1439,"width":1920},"description":"Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up&hellip;","author":{"@type":"Person","name":"Thomas Brandstetter","url":"https://norocketscience.at/authors/thomas-brandstetter/"},"publisher":{"@type":"Organization","name":"Thomas Brandstetter","logo":{"@type":"ImageObject","url":"https://norocketscience.at/media/website/logo_dark.png","height":211,"width":1379}}}</script><noscript><style>img[loading] {
+                    opacity: 1;
+                }</style></noscript></head><body class="post-template"><header class="top js-header"><a class="logo" href="https://norocketscience.at/"><img src="https://norocketscience.at/media/website/logo_dark.png" alt="No Rocket Science" width="1379" height="211"></a><nav class="navbar js-navbar"><button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><span class="navbar__toggle-box"><span class="navbar__toggle-inner">Menu</span></span></button><ul class="navbar__menu"><li><a href="https://norocketscience.at/about-2/" title="About" target="_self">About</a></li><li><a href="https://norocketscience.at/legal/" title="Legal" target="_self">Legal</a></li></ul></nav></header><main class="post"><article class="content"><div class="hero"><header class="hero__content"><div class="wrapper"><h1>Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</h1><div class="feed__meta content__meta"><a href="https://norocketscience.at/authors/thomas-brandstetter/" class="feed__author">Thomas Brandstetter</a> <time datetime="2026-01-30T12:26" class="feed__date">January 30, 2026 </time><span class="reading-time" aria-label="13 min read">13 min read</span></div></div></header><figure class="hero__image"><div class="hero__image-wrapper"><img src="https://norocketscience.at/media/posts/8/geranimo-OomNPPv1Rpk-unsplash-2xl.jpg" srcset="https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl.jpg 1920w" sizes="88vw" loading="eager" height="1439" width="1920" alt=""></div><figcaption>Photo by Geranimo on Unsplash</figcaption></figure></div><div class="entry-wrapper content__entry"><p>Welcome back to our series on building an highly separated Talos Kubernetes cluster! In this second instalment, i'll focus on preparing your Proxmox environment. This involves creating a Proxmox image template for the Ubuntu VMs, downloading necessary images for the management client, and setting up the network bridges for the different networks.</p><h2 id="system-requirements-for-proxmox">System requirements for Proxmox</h2><p>I used an old Thinkcentre M910 from 2018 for this lab. So the requirements are really low level. A decent amount of ram (32GB) and a not too old cpu should be doing it. The Thinkcentre has only one network interface, so I'm working with vlan's in my setup. If you have two or more interface, you can split the incoming networks (client and server). It depends on your own configuration.</p><p>All configuration needed for this part (excluding the Ubuntu Desktop installation) can be found in my <a href="https://github.com/tbrandstetter/norocketscience-examples/tree/main/talos-kubernetes-cluster-part2">GIT repository</a>.</p><h2 id="creating-a-proxmox-image-templatelessbrgreater">Creating a Proxmox image template<br></h2><p>One of the first steps is to create an image template that we can use to quickly spin up new virtual machines (VMs) based on cloud-image. This template will serve as our base image for the registry VM in our setup. I already documented the involved steps in my post <a href="https://norocketscience.at/about/">"Deploy Proxmox virtual machines using Cloud-init"</a></p><h2 id="downloading-necessary-images">Downloading necessary images</h2><p>Next, you’ll need to download images for the following components:</p><p>Ubuntu Desktop: <a href="https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-desktop-amd64.iso">Ubuntu Desktop 24.03.3 LTS Amd64</a><br>PFSense Firewall: <a href="https://atxfiles.netgate.com/mirror/downloads/pfSense-CE-2.7.2-RELEASE-amd64.iso.gz">pfSense CE 2.7.2</a><br></p><p>You can download it directly through the Proxmox GUI:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox1.jpg" height="750" width="1440" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox1-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/proxmox1-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/proxmox1-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/proxmox1-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/proxmox1-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/proxmox1-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox2.jpg" height="586" width="1196" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/proxmox2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/proxmox2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/proxmox2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/proxmox2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/proxmox2-2xl.jpg 1920w"></figure><p>Copy the URL for the image into the "URL" field and click "Query URL" - after that you should see the file name which you put into the OpenTofu config in the next steps. Click on "Download" to download the file directly into Proxmox. Continue with all the components listed above.</p><h2 id="configure-keyless-login-for-cloud-init">Configure keyless login for cloud-init</h2><p>You can always add a ssh key to your cloud-init configuration, but for now I'm activating password login for the ubuntu user in the ubuntu cloud images. For this you need to copy the following cloud-init configuration to /var/lib/vz/snippets (you have to create the snippets folder&nbsp;</p><pre class="line-numbers language-bash"><code>#cloud-config
+users:
+  - name: ubuntu
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+ssh_pwauth: True ## This line enables ssh password authentication</code></pre><h2 id="creating-proxmox-network-bridges">Creating Proxmox network bridges</h2><p>Proper network setup is crucial for implementing the lab. We’ll create multiple network bridges to isolate traffic between different components in conjunction wit pfSense. Remember from the first post we need three different networks:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox3-2.jpg" height="277" width="1310" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox3-2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/proxmox3-2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/proxmox3-2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/proxmox3-2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/proxmox3-2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/proxmox3-2-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox4.jpg" height="257" width="602" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox4-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/proxmox4-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/proxmox4-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/proxmox4-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/proxmox4-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/proxmox4-2xl.jpg 1920w"></figure><p>These networks are local only Linux bridges. Means that they don't have any other network ports bridged and cannot communicate outside your Proxmox node. Just add a bridge, fill in the device name <em>vmbrX</em> and the CIDR notation for the network. In my example I used the following network convention:</p><ul><li>DMZ - dmz.lab.internal 172.16.100.0/24</li><li>MGMT mgmt.lab.internal 192.168.100.0/24</li><li>SRV - srv.lab.internal 10.10.100.0/24</li></ul><p>Additionally, we have the main network connection, needed for pfSense as <em>WAN</em> port. So all outgoing traffic will go through this one. Normally this is <em>vmbr0</em> in a default installation of Proxmox. For convenience reasons I've created an additional vlan in my home network to create a <em>CLIENT</em> network inside Proxmox to reach the management client (which will be installed later) directly from my home setup. It is possible to achieve this through the default lan connection too, but I didn't like the idea to mix up the functionality and to get a clear cut between INGRESS and EGRESS traffic.</p><h2 id="provisioning-through-opentofu">Provisioning through OpenTofu</h2><p>As stated in the first post I'm going to use <a href="https://opentofu.org">OpenTofu</a> for installation of the VMs. Everyone who uses Terraform should have not problem with OpenTofu which is the Open-Source fork. I'm not going into installation of the cli. This can be found in the <a href="https://opentofu.org/docs/intro/install/">cli installation guide</a> for your environment.</p><p>For the lab the following infrastructure is needed:</p><ul><li>1 x Management Client</li><li>1 x pfSense Firewall</li><li>1 x HAProxy Ingress</li><li>1 x Registry</li><li>1 x Talos control plane node</li><li>1 x Talos worker node</li></ul><p>If you are new to Terraform provisioning with Proxmox I can recommend a blog post I've written years ago: <a href="https://norocketscience.at/install-proxmox-virtual-machines-with-terraform-2/">Install Proxmox virtual machines with Terraform</a>&nbsp;The post will guide you through the configuration of the needed provider and describe the lifecycle of a typical provisioning process.</p><p>To speed up the deployment process I've already created a <a href="https://github.com/tbrandstetter/norocketscience-examples/tree/main/talos-kubernetes-cluster-part2">ready to use configuration on in my GIT repository</a>. You just have to change the user/pwd of the api user as well as the Proxmox hostname in the provider config. If you have different image names created during the image download process or use different template names for your Proxmox templates you have to change that, as well as for changed vmbrX network names.</p><p>Be aware that the Talos control plane and the Talos worker node ist <strong>disabled for now</strong>. We're going to enable that and rerun OpenTofu after the Talos image factory has been installed and configured. This is necessary, because we're using SecureBoot and if the images change during installation, you have to reset the bios state.</p><p>Back to business. To start with OpenTofu three different yaml files have to be created:</p><ul><li>provider.tf --&gt; holds the configuration for the Proxmox provider</li><li>variables.tf --&gt; replaces the placeholder in all other configuration files</li><li>main.tf --&gt; includes all the information about the VMs we're going to provision</li></ul><pre class="line-numbers language-json"><code># provider.tf
+
+terraform {
+  required_providers {
+    proxmox = {
+      source  = "telmate/proxmox"
+      version = "3.0.2-rc07"
+    }
+  }
+}
+
+provider "proxmox" {
+  pm_parallel     = 1
+  pm_tls_insecure = true
+  pm_api_url      = var.pm_api_url
+  pm_password     = var.pm_password
+  pm_user         = var.pm_user
+  pm_log_enable   = true
+  pm_log_file     = "terraform-plugin-proxmox.log"
+  pm_debug        = true
+  pm_log_levels = {
+    _default    = "debug"
+    _capturelog = ""
+  }
+}
+</code></pre><pre class="line-numbers language-json"><code># variables.tf
+
+variable "pm_api_url" {
+  default = "https://fill in your hostname:8006/api2/json"
+}
+
+variable "pm_user" {
+  default = "fill in your user"
+}
+
+variable "pm_password" {
+  default = "fill in your password"
+}
+</code></pre><pre class="line-numbers language-json"><code># main.tf
+
+# Control Plane
+# resource "proxmox_vm_qemu" "controlplane" {
+#   name        = "talos-cp-${count.index + 1}"
+#   target_node = "proxmox2"
+#   count       = 1
+#   bios        = "ovmf"
+#   agent       = 1
+#   machine     = "q35"
+#   skip_ipv6   = true
+
+#   startup_shutdown {
+#     order             = 3
+#     shutdown_timeout  = -1
+#     startup_delay     = -1
+#   }
+
+#   start_at_node_boot = true
+#   cpu {
+#     cores = 4
+#     sockets = 1
+#     type = "host"
+#   }
+#   memory   = 6144
+#   scsihw   = "virtio-scsi-pci"
+#   boot     = "order=scsi0;ide2"
+
+#   disks {
+#     ide {
+#       ide2 {
+#         cdrom {
+#           iso = "local:iso/metal-amd64-secureboot.iso"
+#         }
+#       }
+#     }
+#     scsi {
+#       scsi0 {
+#         disk {
+#           size     = "64G"
+#           storage  = "data"
+#         }
+#       }
+#     }
+#   }
+
+#   efidisk {
+#     efitype = "4m"
+#     storage = "data"
+#   }
+
+#   network {
+#     model  = "virtio"
+#     bridge = "vmbr3"
+#     firewall = false
+#     link_down = false
+#     id = 1
+#   }
+
+#   rng {
+#     period = 0
+#     source = "/dev/urandom"
+#   }
+
+#   vga {
+#     type   = "std"
+#   }
+# }
+
+# Worker
+# resource "proxmox_vm_qemu" "worker" {
+#   name        = "talos-worker-${count.index +1}"
+#   target_node = "proxmox2"
+#   count       = 1
+#   bios        = "ovmf"
+#   agent       = 1
+#   machine     = "q35"
+#   skip_ipv6   = true
+
+#   startup_shutdown {
+#     order             = 4
+#     shutdown_timeout  = -1
+#     startup_delay     = -1
+#   }
+
+#   start_at_node_boot = true
+#   cpu {
+#     cores = 4
+#     sockets = 1
+#     type = "host"
+#   }
+#   memory   = 8172
+#   scsihw   = "virtio-scsi-pci"
+#   boot     = "order=scsi0;ide2"
+
+#   disks {
+#     ide {
+#       ide2 {
+#         cdrom {
+#           iso = "local:iso/metal-amd64-secureboot.iso"
+#         }
+#       }
+#     }
+#     scsi {
+#       scsi0 {
+#         disk {
+#           size     = "100G"
+#           storage  = "data"
+#         }
+#       }
+#     }
+#   }
+
+#   efidisk {
+#     efitype = "4m"
+#     storage = "data"
+#   }
+
+#   network {
+#     model  = "virtio"
+#     bridge = "vmbr3"
+#     firewall = false
+#     link_down = false
+#     id = 1
+#   }
+
+#   rng {
+#     period = 0
+#     source = "/dev/urandom"
+#   }
+
+#   vga {
+#     type   = "std"
+#   }
+# }
+
+# PFSense Firewall
+resource "proxmox_vm_qemu" "firewall" {
+  name        = "pfsense-${count.index +1}"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 1
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 1
+    sockets = 1
+    type = "host"
+  }
+  memory   = 1024
+  boot     = "order=virtio0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/pfSense-CE-2.7.2-RELEASE-amd64.iso"
+        }
+      }
+    }
+    virtio {
+      virtio0 {
+        disk {
+          size     = "10G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  # WAN
+  network {
+    model  = "virtio"
+    bridge = "vmbr0"
+    firewall = false
+    link_down = false
+    id = 0
+  }
+
+  # MGMT
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  # DMZ
+  network {
+    model  = "virtio"
+    bridge = "vmbr2"
+    firewall = false
+    link_down = false
+    id = 2
+  }
+
+  # SRV
+  network {
+    model  = "virtio"
+    bridge = "vmbr3"
+    firewall = false
+    link_down = false
+    id = 3
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "std"
+  }
+}
+
+# Bastion Host
+resource "proxmox_vm_qemu" "bastion" {
+  name        = "bastion"
+  target_node = "proxmox2"
+  count       = 1
+
+  clone = "ubuntu-24.04-cloud-init-template"
+
+  startup_shutdown {
+    order             = 2
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  os_type  = "cloud-init"
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-single"
+  boot     = "order=scsi0"
+
+  disks {
+    ide {
+      ide0 {
+        cloudinit {
+          storage = "data"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "50G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    id = 0
+  }
+
+  lifecycle {
+    ignore_changes = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0 = "ip=192.168.100.11/24,gw=192.168.100.1"
+  nameserver = "192.168.100.1"
+  searchdomain = "mgmt.lab.internal"
+  cipassword  = "ubuntu"
+  cicustom    = "vendor=local:snippets/ci-custom.yml"
+  ciupgrade   = true 
+}
+
+# HAProxy Ingress Host
+resource "proxmox_vm_qemu" "haproxy-ingess" {
+  name        = "haproxy-ingress-1"
+  target_node = "proxmox2"
+  count       = 1
+
+  clone = "ubuntu-24.04-cloud-init-template"
+
+  startup_shutdown {
+    order             = 5
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  os_type  = "cloud-init"
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-single"
+  boot     = "order=scsi0"
+
+  disks {
+    ide {
+      ide0 {
+        cloudinit {
+          storage = "data"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "50G"
+          storage  = "data"
+          iothread = true
+        }
+      }
+    }
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr2"
+    id = 0
+  }
+
+  lifecycle {
+    ignore_changes = [
+      network,
+    ]
+  }
+
+  # Cloud Init Settings
+  ipconfig0 = "ip=172.16.100.10/24,gw=172.16.100.1"
+  nameserver = "172.16.100.1"
+  searchdomain = "srv.lab.internal"
+  cipassword  = "ubuntu"
+  cicustom    = "vendor=local:snippets/ci-custom.yml"
+  ciupgrade   = true 
+}
+
+
+# Management Client
+resource "proxmox_vm_qemu" "mgmt-client" {
+  name        = "mgmt-client"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  agent       = 1
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 6
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 2
+    sockets = 1
+    type = "host"
+  }
+  memory   = 4096
+  scsihw   = "virtio-scsi-pci"
+  boot     = "order=scsi0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/ubuntu-24.04.3-desktop-amd64.iso"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "64G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr1"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr4"
+    firewall = false
+    link_down = false
+    id = 2
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "virtio"
+    memory = 128
+  }
+}</code></pre><p>After the files have ben set up, the provider needs to be installed first:</p><pre class="line-numbers language-bash"><code>tofu init
+</code></pre><p>If everything wents fine you should see the following information:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/tofu1.jpg" height="560" width="1938" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/tofu1-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/tofu1-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/tofu1-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/tofu1-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/tofu1-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/tofu1-2xl.jpg 1920w"></figure><p>Now we can plan our provisioning:</p><pre class="line-numbers language-bash"><code>tofu plan</code></pre><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/tofu2.jpg" height="264" width="654" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/tofu2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/tofu2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/tofu2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/tofu2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/tofu2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/tofu2-2xl.jpg 1920w"></figure><p>There should be only add's for the first run. Last but not least tofu apply will start the provisioning:</p><pre class="line-numbers language-html"><code>tofu apply</code></pre><p>In the end you should see the new installed VMs in your Proxmox instance (Talos nodes excluded right now!)</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/proxmox6.jpg" height="598" width="444" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/proxmox6-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/proxmox6-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/proxmox6-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/proxmox6-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/proxmox6-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/proxmox6-2xl.jpg 1920w"></figure><h2 id="install-ubuntu-management-client">Install Ubuntu management client</h2><p>For managing pfSense and as a passthrough for or other VMs I'm using Ubuntu Desktop. I'm not going into detail how to install an Linux desktop system, because on this level we're operating it should be a no brainer. If you need a guidance, there is a great tutorial on&nbsp;<a href="https://thedev.uk/how-to-install-ubuntu-desktop-24-04-1-on-proxmox-a-comprehensive-guide/">thedev.uk</a></p><p>The key points for the installation are:</p><ul><li>&nbsp;Use just the Basic Software</li><li>Install 3rd Party Software</li><li>(Optional) Disable Password for Login</li><li>apt install qemu-guest agent ssh<br></li></ul><p>Additionally, we disabling the automatic gateway setting in the second network interface which sould be the lan/vlan to your homelab client network:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/network1-2.jpg" height="614" width="1956" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/network1-2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/network1-2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/network1-2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/network1-2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/network1-2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/network1-2-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/network2.jpg" height="968" width="1502" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/network2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/network2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/network2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/network2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/network2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/network2-2xl.jpg 1920w"></figure><p>This is needed to avoid asynchronous routing between your network outside of Proxmox and pfSense.</p><h2 id="configure-pfsense">Configure pfSense</h2><p>Go to the Proxmox console of your pfSense host and start the installation. You can use the standard values in the installation setup. For the disk filesystem I personally prefer UFS for this lab.</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense7.jpg" height="1058" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense7-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense7-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense7-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense7-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense7-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense7-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense8.jpg" height="1058" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense8-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense8-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense8-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense8-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense8-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense8-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense9.jpg" height="1058" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense9-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense9-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense9-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense9-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense9-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense9-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense10.jpg" height="1058" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense10-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense10-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense10-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense10-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense10-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense10-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense11.jpg" height="1058" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense11-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense11-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense11-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense11-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense11-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense11-2xl.jpg 1920w"></figure><p>After a reboot we could enter the initial WAN and MGMT interface configuration so that we can do the rest of the setup over the web browser:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense.jpg" height="1014" width="2332" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense-2xl.jpg 1920w"></figure><p>Continue this for vtnet2 and vtnet3. The network interfaces in the console should look like this right now</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense13.jpg" height="365" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense13-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense13-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense13-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense13-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense13-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense13-2xl.jpg 1920w"></figure><ul><li>WAN -&gt; vtnet0 -&gt; v4/DHCP4 -&gt; Server lan ip</li><li>LAN -&gt; vtnet1 -&gt; v4</li><li>OPT1 -&gt; vtnet2 -&gt; v4</li><li>OPT2 -&gt; vtnet3 -&gt; v4</li></ul><p>To get access to the management gui from the management client, we need to statically set an ip address. For this lab we'll take the ip 192.168.100.1:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense2.jpg" height="582" width="2110" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense2-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense2-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense2-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense2-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense2-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense2-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense3.jpg" height="384" width="1766" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense3-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense3-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense3-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense3-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense3-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense3-2xl.jpg 1920w"></figure><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense17.jpg" height="954" width="1697" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense17-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense17-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense17-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense17-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense17-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense17-2xl.jpg 1920w"></figure><p>Now you should be able to see the admin interface through the web browser on the management client</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense4.jpg" height="1286" width="2596" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense4-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense4-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense4-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense4-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense4-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense4-2xl.jpg 1920w"></figure><p>After typing in admin/pfsense you'll be guided through an initial setup process. On the general information screen (step 2 of 9) enter the following information:</p><ul><li>hostname: firewall</li><li>domain: mgmt.lab.internal</li><li>dns: "your internal dns" or 8.8.8.8</li></ul><p>On step 4 of 9 (Configure WAN interface) disable the private network block:</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense5.jpg" height="266" width="2300" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense5-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense5-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense5-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense5-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense5-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense5-2xl.jpg 1920w"></figure><p>For the rest of the steps the default settings are ok. Before we're configuring the rest of the system update pfSense to the latest version if available. You can do that under System/Update.</p><figure class="post__image post__image--center"><img loading="lazy" src="https://norocketscience.at/media/posts/8/pfsense18.jpg" height="891" width="1851" alt="" sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/8/responsive/pfsense18-xs.jpg 640w, https://norocketscience.at/media/posts/8/responsive/pfsense18-sm.jpg 768w, https://norocketscience.at/media/posts/8/responsive/pfsense18-md.jpg 1024w, https://norocketscience.at/media/posts/8/responsive/pfsense18-lg.jpg 1366w, https://norocketscience.at/media/posts/8/responsive/pfsense18-xl.jpg 1600w, https://norocketscience.at/media/posts/8/responsive/pfsense18-2xl.jpg 1920w"></figure><p>Now that we're finished with the initial configuration. It's time to configure the rest of the system so that we're get our lab to work. For this, I've already prepared a ready to use backup file. To install it go to <em>Diagnostics / Backup &amp; Restore</em> and upload the backup file&nbsp;from the GIT repository.</p><p>A list of the config change are:</p><ul><li>Proper naming and configuration of all network interfaces</li><li>Activated Kea DHCP server for the lan interfaces</li><li>Activated DNS resolver with static entries for Talos</li><li>Installed and configured FRR package for the BGP config</li><li>FW rules for the whole lab</li></ul><p><strong>Please be aware, you have to change the MAC addresses for the static dhcp entries!</strong></p><p>If everything went fine you should now be able to ssh into the Registry VM through the ip 192.168.100.11 which we need for the next part to install the internal image registry as well as the Talos Image Factory.</p><p>Stay tuned and leave me a <a href="https://tinyurl.com/4atbveyr">comment on LinkedIn</a> for any problems or suggestions you have.</p><p>Related posts:</p><p><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part1 - Overview</a></p></div><footer class="content__footer"><div class="entry-wrapper"><p class="content__updated">This article was updated on February 4, 2026</p><div class="content__actions"><div class="content__share"><button class="btn--icon content__share-button js-content__share-button"><svg width="20" height="20" aria-hidden="true"><use xlink:href="https://norocketscience.at/assets/svg/svg-map.svg#share"></use></svg> <span>Share It</span></button><div class="content__share-popup js-content__share-popup"></div></div></div><div class="content__bio bio"><div><h3 class="h4 bio__name"><a href="https://norocketscience.at/authors/thomas-brandstetter/" rel="author">Thomas Brandstetter</a></h3></div></div></div><nav class="content__nav"><div class="wrapper"><div class="content__nav-inner"><div class="content__nav-prev"><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/" class="content__nav-link" rel="prev"><figure class="content__nav-image"><img src="https://norocketscience.at/media/posts/7/responsive/geranimo-OomNPPv1Rpk-unsplash-xs.jpg" class="lazyload" loading="lazy" alt="" height="2992" width="2992"></figure><div><span>Previous</span> Highly separated Talos Kubernetes Cluster: Part 1 - Overview</div></a></div></div></div></nav></footer></article><div class="content__related related"><div class="wrapper"><h2 class="h4 related__title">You should also read:</h2><article class="feed__item feed__item--centered"><figure class="feed__image related__image"><img src="https://norocketscience.at/media/posts/7/geranimo-OomNPPv1Rpk-unsplash.jpg" srcset="https://norocketscience.at/media/posts/7/responsive/geranimo-OomNPPv1Rpk-unsplash-xs.jpg 640w, https://norocketscience.at/media/posts/7/responsive/geranimo-OomNPPv1Rpk-unsplash-sm.jpg 768w, https://norocketscience.at/media/posts/7/responsive/geranimo-OomNPPv1Rpk-unsplash-md.jpg 1024w" sizes="(min-width: 600px) calc(4.38vw + 143px), 87.86vw" loading="lazy" height="2992" width="3992" alt=""></figure><div class="feed__content"><header><div class="feed__meta"><a href="https://norocketscience.at/authors/thomas-brandstetter/" class="feed__author">Thomas Brandstetter</a> <time datetime="2026-01-29T20:46" class="feed__date">January 29, 2026</time></div><h3 class="feed__title"><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part 1 - Overview</a></h3></header><p>Welcome to the overview of a series on building an Talos Kubernetes cluster with enhanced security. This journey will take you through every step, from setting up the initial infrastructure to deploying a fully functional demo application. In this introductory post, we'll discuss why I'm&hellip;</p><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/" class="readmore feed__readmore">Continue reading...</a></div></article></div></div></main><footer class="footer footer--glued"><div class="wrapper"><div class="footer__copyright"><p>Powered by Publii</p></div><button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top"><svg width="20" height="20"><use xlink:href="https://norocketscience.at/assets/svg/svg-map.svg#toparrow"/></svg></button></div></footer><script defer="defer" src="https://norocketscience.at/assets/js/scripts.min.js?v=d0fc1030089a37f93a2d51bf6d07565c"></script><script>window.publiiThemeMenuConfig={mobileMenuMode:'sidebar',animationSpeed:300,submenuWidth: 'auto',doubleClickTime:500,mobileMenuExpandableSubmenus:true,relatedContainerForOverlayMenuSelector:'.top'};</script><script>var images = document.querySelectorAll('img[loading]');
+        for (var i = 0; i < images.length; i++) {
+            if (images[i].complete) {
+                images[i].classList.add('is-loaded');
+            } else {
+                images[i].addEventListener('load', function () {
+                    this.classList.add('is-loaded');
+                }, false);
+            }
+        }</script><div class="pcb" data-behaviour="badge" data-behaviour-link="#cookie-settings" data-revision="1" data-config-ttl="90" data-debug-mode="false"><div role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pcb-title" aria-describedby="pcb-txt" class="pcb__banner"><div class="pcb__inner"><div id="pcb-title" role="heading" aria-level="2" class="pcb__title">This website uses cookies</div><div id="pcb-txt" class="pcb__txt">Select which cookies to opt-in to via the checkboxes below; our website uses cookies to examine site traffic and user activity while on our site, for marketing, and to provide social media functionality. <a href="https://norocketscience.at/legal/">More details...</a></div><div class="pcb__buttons"><button type="button" class="pcb__btn pcb__btn--solid pcb__btn--accept">Accept all</button></div></div></div><button class="pcb__badge" aria-label="Cookie Policy" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="40" height="40" viewBox="0 0 23 23" fill="currentColor"><path d="M21.41 12.71c-.08-.01-.15 0-.22 0h-.03c-.03 0-.05 0-.08.01-.07 0-.13.01-.19.04-.52.21-1.44.19-2.02-.22-.44-.31-.65-.83-.62-1.53a.758.758 0 0 0-.27-.61.73.73 0 0 0-.65-.14c-1.98.51-3.49.23-4.26-.78-.82-1.08-.73-2.89.24-4.49.14-.23.14-.52 0-.75a.756.756 0 0 0-.67-.36c-.64.03-1.11-.1-1.31-.35-.19-.26-.13-.71-.01-1.29.04-.18.06-.38.03-.59-.05-.4-.4-.7-.81-.66C5.1 1.54 1 6.04 1 11.48 1 17.28 5.75 22 11.6 22c5.02 0 9.39-3.54 10.39-8.42.08-.4-.18-.78-.58-.87Zm-9.81 7.82c-5.03 0-9.12-4.06-9.12-9.06 0-4.34 3.05-8 7.25-8.86-.08.7.05 1.33.42 1.81.24.32.66.67 1.38.84-.76 1.86-.65 3.78.36 5.11.61.81 2.03 2 4.95 1.51.18.96.71 1.54 1.18 1.87.62.43 1.38.62 2.1.62.05 0 .09 0 .13-.01-1.23 3.64-4.7 6.18-8.64 6.18ZM13 17c0 .55-.45 1-1 1s-1-.45-1-1 .45-1 1-1 1 .45 1 1Zm5.29-12.3a.99.99 0 0 1-.29-.71c0-.55.45-.99 1-.99a1 1 0 0 1 .71.3c.19.19.29.44.29.71 0 .55-.45.99-1 .99a1 1 0 0 1-.71-.3ZM9 13.5c0 .83-.67 1.5-1.5 1.5S6 14.33 6 13.5 6.67 12 7.5 12s1.5.67 1.5 1.5Zm3.25.81a.744.744 0 0 1-.06-1.05c.28-.32.75-.34 1.05-.06.31.28.33.75.05 1.06-.15.16-.35.25-.56.25-.18 0-.36-.06-.5-.19ZM8.68 7.26c.41.37.44 1 .07 1.41-.2.22-.47.33-.75.33a.96.96 0 0 1-.67-.26c-.41-.37-.44-1-.07-1.41.37-.42 1-.45 1.41-.08Zm11.48 1.88c.18-.19.52-.19.7 0 .05.04.09.1.11.16.03.06.04.12.04.19 0 .13-.05.26-.15.35-.09.1-.22.15-.35.15s-.26-.05-.35-.15a.355.355 0 0 1-.11-.16.433.433 0 0 1-.04-.19c0-.13.05-.26.15-.35Zm-4.93-1.86a.75.75 0 1 1 1.059-1.06.75.75 0 0 1-1.059 1.06Z"/></svg></button></div><script>(function(win) {
+    if (!document.querySelector('.pcb')) {
+        return;
+    }
+
+    var cbConfig = {
+        behaviour: document.querySelector('.pcb').getAttribute('data-behaviour'),
+        behaviourLink: document.querySelector('.pcb').getAttribute('data-behaviour-link'),
+        revision: document.querySelector('.pcb').getAttribute('data-revision'),
+        configTTL: parseInt(document.querySelector('.pcb').getAttribute('data-config-ttl'), 10),
+        debugMode: document.querySelector('.pcb').getAttribute('data-debug-mode') === 'true',
+        initialState: null,
+        initialLsState: null,
+        previouslyAccepted: []
+    };
+
+    var cbUI = {
+        wrapper: document.querySelector('.pcb'),
+        banner: {
+            element: null,
+            btnAccept: null,
+            btnReject: null,
+            btnConfigure: null
+        },
+        popup: {
+            element: null,
+            btnClose: null,
+            btnSave: null,
+            btnAccept: null,
+            btnReject: null,
+            checkboxes: null,
+        },
+        overlay: null,
+        badge: null,
+        blockedScripts: document.querySelectorAll('script[type^="gdpr-blocker/"]'),
+        triggerLinks: cbConfig.behaviourLink ? document.querySelectorAll('a[href*="' + cbConfig.behaviourLink + '"]') : null
+    };
+
+    function initUI () {
+        // setup banner elements
+        cbUI.banner.element = cbUI.wrapper.querySelector('.pcb__banner');
+        cbUI.banner.btnAccept = cbUI.banner.element.querySelector('.pcb__btn--accept');
+        cbUI.banner.btnReject = cbUI.banner.element.querySelector('.pcb__btn--reject');
+        cbUI.banner.btnConfigure = cbUI.banner.element.querySelector('.pcb__btn--configure');
+
+        // setup popup elements
+        if (cbUI.wrapper.querySelector('.pcb__popup')) {
+            cbUI.popup.element = cbUI.wrapper.querySelector('.pcb__popup');
+            cbUI.popup.btnClose = cbUI.wrapper.querySelector('.pcb__popup__close');
+            cbUI.popup.btnSave = cbUI.popup.element.querySelector('.pcb__btn--save');
+            cbUI.popup.btnAccept = cbUI.popup.element.querySelector('.pcb__btn--accept');
+            cbUI.popup.btnReject = cbUI.popup.element.querySelector('.pcb__btn--reject');
+            cbUI.popup.checkboxes = cbUI.popup.element.querySelector('input[type="checkbox"]');
+            // setup overlay
+            cbUI.overlay = cbUI.wrapper.querySelector('.pcb__overlay');
+        }
+
+        cbUI.badge = cbUI.wrapper.querySelector('.pcb__badge');
+
+        if (cbConfig.behaviour.indexOf('link') > -1) {
+            for (var i = 0; i < cbUI.triggerLinks.length; i++) {
+                cbUI.triggerLinks[i].addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showBannerOrPopup();
+                });
+            }
+        }
+    }
+
+    function initState () {
+        var lsKeyName = getConfigName();
+        var currentConfig = localStorage.getItem(lsKeyName);
+        var configIsFresh = checkIfConfigIsFresh();
+
+        if (!configIsFresh || currentConfig === null) {
+            if (cbConfig.debugMode) {
+                console.log('🍪 Config not found, or configuration expired');
+            }
+
+            if (window.publiiCBGCM) {
+                gtag('consent', 'default', {
+                    'ad_storage': window.publiiCBGCM.defaultState.ad_storage ? 'granted' : 'denied',
+                    'ad_personalization': window.publiiCBGCM.defaultState.ad_personalization ? 'granted' : 'denied',
+                    'ad_user_data': window.publiiCBGCM.defaultState.ad_user_data ? 'granted' : 'denied',
+                    'analytics_storage': window.publiiCBGCM.defaultState.analytics_storage ? 'granted' : 'denied',
+                    'personalization_storage': window.publiiCBGCM.defaultState.personalization_storage ? 'granted' : 'denied',
+                    'functionality_storage': window.publiiCBGCM.defaultState.functionality_storage ? 'granted' : 'denied',
+                    'security_storage': window.publiiCBGCM.defaultState.security_storage ? 'granted' : 'denied'
+                });  
+                
+                if (cbConfig.debugMode) {
+                    console.log('🍪 GCMv2 DEFAULT STATE: ' + JSON.stringify({
+                        'ad_storage': window.publiiCBGCM.defaultState.ad_storage ? 'granted' : 'denied',
+                        'ad_personalization': window.publiiCBGCM.defaultState.ad_personalization ? 'granted' : 'denied',
+                        'ad_user_data': window.publiiCBGCM.defaultState.ad_user_data ? 'granted' : 'denied',
+                        'analytics_storage': window.publiiCBGCM.defaultState.analytics_storage ? 'granted' : 'denied',
+                        'personalization_storage': window.publiiCBGCM.defaultState.personalization_storage ? 'granted' : 'denied',
+                        'functionality_storage': window.publiiCBGCM.defaultState.functionality_storage ? 'granted' : 'denied',
+                        'security_storage': window.publiiCBGCM.defaultState.security_storage ? 'granted' : 'denied'
+                    }));
+                }
+            }
+
+            showBanner();
+        } else if (typeof currentConfig === 'string') {
+            if (cbConfig.debugMode) {
+                console.log('🍪 Config founded');
+            }
+
+            cbConfig.initialLsState = currentConfig.split(',');
+
+            if (window.publiiCBGCM) {
+                gtag('consent', 'default', {
+                    'ad_storage': getDefaultConsentState(currentConfig, 'ad_storage'),
+                    'ad_personalization': getDefaultConsentState(currentConfig, 'ad_personalization'),
+                    'ad_user_data': getDefaultConsentState(currentConfig, 'ad_user_data'),
+                    'analytics_storage': getDefaultConsentState(currentConfig, 'analytics_storage'),
+                    'personalization_storage': getDefaultConsentState(currentConfig, 'personalization_storage'),
+                    'functionality_storage': getDefaultConsentState(currentConfig, 'functionality_storage'),
+                    'security_storage': getDefaultConsentState(currentConfig, 'security_storage')
+                });
+                
+                if (cbConfig.debugMode) {
+                    console.log('🍪 GCMv2 DEFAULT STATE: ' + JSON.stringify({
+                        'ad_storage': getDefaultConsentState(currentConfig, 'ad_storage'),
+                        'ad_personalization': getDefaultConsentState(currentConfig, 'ad_personalization'),
+                        'ad_user_data': getDefaultConsentState(currentConfig, 'ad_user_data'),
+                        'analytics_storage': getDefaultConsentState(currentConfig, 'analytics_storage'),
+                        'personalization_storage': getDefaultConsentState(currentConfig, 'personalization_storage'),
+                        'functionality_storage': getDefaultConsentState(currentConfig, 'functionality_storage'),
+                        'security_storage': getDefaultConsentState(currentConfig, 'security_storage')
+                    }));
+                }
+            }
+
+            showBadge();
+
+            if (cbUI.popup.element) {
+                var allowedGroups = currentConfig.split(',');
+                var checkedCheckboxes = cbUI.popup.element.querySelectorAll('input[type="checkbox"]:checked');
+
+                for (var j = 0; j < checkedCheckboxes.length; j++) {
+                    var name = checkedCheckboxes[j].getAttribute('data-group-name');
+
+                    if (name && name !== '-' && allowedGroups.indexOf(name) === -1) {
+                        checkedCheckboxes[j].checked = false;
+                    }
+                }
+
+                for (var i = 0; i < allowedGroups.length; i++) {
+                    var checkbox = cbUI.popup.element.querySelector('input[type="checkbox"][data-group-name="' + allowedGroups[i] + '"]');
+
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+
+                    allowCookieGroup(allowedGroups[i]);
+                }
+            }
+        }
+
+        setTimeout(function () {
+            cbConfig.initialState = getInitialStateOfConsents();
+        }, 0);
+    }
+
+    function checkIfConfigIsFresh () {
+        var lastConfigSave = localStorage.getItem('publii-gdpr-cookies-config-save-date');
+
+        if (lastConfigSave === null) {
+            return false;
+        }
+
+        lastConfigSave = parseInt(lastConfigSave, 10);
+
+        if (lastConfigSave === 0) {
+            return true;
+        }
+
+        if (+new Date() - lastConfigSave < cbConfig.configTTL * 24 * 60 * 60 * 1000) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function getDefaultConsentState (currentConfig, consentGroup) {
+        let configGroups = currentConfig.split(',');
+
+        for (let i = 0; i < configGroups.length; i++) {
+            let groupName = configGroups[i];
+            let group = window.publiiCBGCM.groups.find(group => group.cookieGroup === groupName);
+
+            if (group && group[consentGroup]) {
+                return 'granted';
+            }
+        }  
+        
+        if (window.publiiCBGCM.defaultState[consentGroup]) {
+            return 'granted'; 
+        }
+        
+        return 'denied';
+    }
+
+    function initBannerEvents () {
+        cbUI.banner.btnAccept.addEventListener('click', function (e) {
+            e.preventDefault();
+            acceptAllCookies('banner');
+            showBadge();
+        }, false);
+
+        if (cbUI.banner.btnReject) {
+            cbUI.banner.btnReject.addEventListener('click', function (e) {
+                e.preventDefault();
+                rejectAllCookies();
+                showBadge();
+            }, false);
+        }
+
+        if (cbUI.banner.btnConfigure) {
+            cbUI.banner.btnConfigure.addEventListener('click', function (e) {
+                e.preventDefault();
+                hideBanner();
+                showAdvancedPopup();
+                showBadge();
+            }, false);
+        }
+    }
+
+    function initPopupEvents () {
+        if (!cbUI.popup.element) {
+            return;
+        }
+
+        cbUI.overlay.addEventListener('click', function (e) {
+            hideAdvancedPopup();
+        }, false);
+
+        cbUI.popup.element.addEventListener('click', function (e) {
+            e.stopPropagation();
+        }, false);
+
+        cbUI.popup.btnAccept.addEventListener('click', function (e) {
+            e.preventDefault();
+            acceptAllCookies('popup');
+        }, false);
+
+        cbUI.popup.btnReject.addEventListener('click', function (e) {
+            e.preventDefault();
+            rejectAllCookies();
+        }, false);
+
+        cbUI.popup.btnSave.addEventListener('click', function (e) {
+            e.preventDefault();
+            saveConfiguration();
+        }, false);
+
+        cbUI.popup.btnClose.addEventListener('click', function (e) {
+            e.preventDefault();
+            hideAdvancedPopup();
+        }, false);
+    }
+
+    function initBadgeEvents () {
+        if (!cbUI.badge) {
+            return;
+        }
+
+        cbUI.badge.addEventListener('click', function (e) {
+            showBannerOrPopup();
+        }, false);
+    }
+
+    initUI();
+    initState();
+    initBannerEvents();
+    initPopupEvents();
+    initBadgeEvents();
+
+    /**
+     * API
+     */
+    function addScript (src, inline) {
+        var newScript = document.createElement('script');
+
+        if (src) {
+            newScript.setAttribute('src', src);
+        }
+
+        if (inline) {
+            newScript.text = inline;
+        }
+
+        document.body.appendChild(newScript);
+    }
+
+    function allowCookieGroup (allowedGroup) {
+        var scripts = document.querySelectorAll('script[type="gdpr-blocker/' + allowedGroup + '"]');
+        cbConfig.previouslyAccepted.push(allowedGroup);
+    
+        for (var j = 0; j < scripts.length; j++) {
+            addScript(scripts[j].src, scripts[j].text);
+        }
+
+        var groupEvent = new Event('publii-cookie-banner-unblock-' + allowedGroup);
+        document.body.dispatchEvent(groupEvent);
+        unlockEmbeds(allowedGroup);
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 Allowed group: ' + allowedGroup);
+        }
+
+        if (window.publiiCBGCM && (!cbConfig.initialLsState || cbConfig.initialLsState.indexOf(allowedGroup) === -1)) {
+            let consentResult = {};
+            let group = window.publiiCBGCM.groups.find(group => group.cookieGroup === allowedGroup);
+
+            if (group) {
+                let foundSomeConsents = false;
+
+                Object.keys(group).forEach(key => {
+                    if (key !== 'cookieGroup' && group[key] === true) {
+                        consentResult[key] = 'granted';
+                        foundSomeConsents = true;
+                    }
+                });
+
+                if (foundSomeConsents) {
+                    gtag('consent', 'update', consentResult);   
+
+                    if (cbConfig.debugMode) {
+                        console.log('🍪 GCMv2 UPDATE: ' + JSON.stringify(consentResult));
+                    }
+                }
+            }
+        }
+    }
+
+    function showBannerOrPopup () {
+        if (cbUI.popup.element) {
+            showAdvancedPopup();
+        } else {
+            showBanner();
+        }
+    }
+
+    function showAdvancedPopup () {
+        cbUI.popup.element.classList.add('is-visible');
+        cbUI.overlay.classList.add('is-visible');
+        cbUI.popup.element.setAttribute('aria-hidden', 'false');
+        cbUI.overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideAdvancedPopup () {
+        cbUI.popup.element.classList.remove('is-visible');
+        cbUI.overlay.classList.remove('is-visible');
+        cbUI.popup.element.setAttribute('aria-hidden', 'true');
+        cbUI.overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    function showBanner () {
+        cbUI.banner.element.classList.add('is-visible');
+        cbUI.banner.element.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideBanner () {
+        cbUI.banner.element.classList.remove('is-visible');
+        cbUI.banner.element.setAttribute('aria-hidden', 'true');
+    }
+
+    function showBadge () {
+        if (!cbUI.badge) {
+            return;
+        }
+
+        cbUI.badge.classList.add('is-visible');
+        cbUI.badge.setAttribute('aria-hidden', 'false');
+    }
+
+    function getConfigName () {
+        var lsKeyName = 'publii-gdpr-allowed-cookies';
+
+        if (cbConfig.revision) {
+            lsKeyName = lsKeyName + '-v' + parseInt(cbConfig.revision, 10);
+        }
+
+        return lsKeyName;
+    }
+
+    function storeConfiguration (allowedGroups) {
+        var lsKeyName = getConfigName();
+        var dataToStore = allowedGroups.join(',');
+        localStorage.setItem(lsKeyName, dataToStore);
+
+        if (cbConfig.configTTL === 0) {
+            localStorage.setItem('publii-gdpr-cookies-config-save-date', 0);
+
+            if (cbConfig.debugMode) {
+                console.log('🍪 Store never expiring configuration');
+            }
+        } else {
+            localStorage.setItem('publii-gdpr-cookies-config-save-date', +new Date());
+        }
+    }
+
+    function getInitialStateOfConsents () {
+        if (!cbUI.popup.element) {
+            return [];
+        }
+
+        var checkedGroups = cbUI.popup.element.querySelectorAll('input[type="checkbox"]:checked');
+        var groups = [];
+
+        for (var i = 0; i < checkedGroups.length; i++) {
+            var allowedGroup = checkedGroups[i].getAttribute('data-group-name');
+
+            if (allowedGroup !== '') {
+                groups.push(allowedGroup);
+            }
+        }
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 Initial state: ' + groups.join(', '));
+        }
+
+        return groups;
+    }
+
+    function getCurrentStateOfConsents () {
+        if (!cbUI.popup.element) {
+            return [];
+        }
+
+        var checkedGroups = cbUI.popup.element.querySelectorAll('input[type="checkbox"]:checked');
+        var groups = [];
+
+        for (var i = 0; i < checkedGroups.length; i++) {
+            var allowedGroup = checkedGroups[i].getAttribute('data-group-name');
+
+            if (allowedGroup !== '') {
+                groups.push(allowedGroup);
+            }
+        }
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 State to save: ' + groups.join(', '));
+        }
+
+        return groups;
+    }
+
+    function getAllGroups () {
+        if (!cbUI.popup.element) {
+            return [];
+        }
+
+        var checkedGroups = cbUI.popup.element.querySelectorAll('input[type="checkbox"]');
+        var groups = [];
+
+        for (var i = 0; i < checkedGroups.length; i++) {
+            var allowedGroup = checkedGroups[i].getAttribute('data-group-name');
+
+            if (allowedGroup !== '') {
+                groups.push(allowedGroup);
+            }
+        }
+
+        return groups;
+    }
+
+    function acceptAllCookies (source) {
+        var groupsToAccept = getAllGroups();
+        storeConfiguration(groupsToAccept);
+
+        for (var i = 0; i < groupsToAccept.length; i++) {
+            var group = groupsToAccept[i];
+
+            if (cbConfig.initialState.indexOf(group) > -1 || cbConfig.previouslyAccepted.indexOf(group) > -1) {
+                if (cbConfig.debugMode) {
+                    console.log('🍪 Skip previously activated group: ' + group);
+                }
+
+                continue;
+            }
+
+            allowCookieGroup(group);
+        }
+
+        if (cbUI.popup.element) {
+            var checkboxesToCheck = cbUI.popup.element.querySelectorAll('input[type="checkbox"]');
+
+            for (var j = 0; j < checkboxesToCheck.length; j++) {
+                checkboxesToCheck[j].checked = true;
+            }
+        }
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 Accept all cookies: ', groupsToAccept.join(', '));
+        }
+
+        if (source === 'popup') {
+            hideAdvancedPopup();
+        } else if (source === 'banner') {
+            hideBanner();
+        }
+    }
+
+    function rejectAllCookies () {
+        if (cbConfig.debugMode) {
+            console.log('🍪 Reject all cookies');
+        }
+
+        storeConfiguration([]);
+        setTimeout(function () {
+            window.location.reload();
+        }, 100);
+    }
+
+    function saveConfiguration () {
+        var groupsToAccept = getCurrentStateOfConsents();
+        storeConfiguration(groupsToAccept);
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 Save new config: ', groupsToAccept.join(', '));
+        }
+
+        if (reloadIsNeeded(groupsToAccept)) {
+            setTimeout(function () {
+                window.location.reload();
+            }, 100);
+            return;
+        }
+
+        for (var i = 0; i < groupsToAccept.length; i++) {
+            var group = groupsToAccept[i];
+
+            if (cbConfig.initialState.indexOf(group) > -1 || cbConfig.previouslyAccepted.indexOf(group) > -1) {
+                if (cbConfig.debugMode) {
+                    console.log('🍪 Skip previously activated group: ' + group);
+                }
+
+                continue;
+            }
+
+            allowCookieGroup(group);
+        }
+
+        hideAdvancedPopup();
+    }
+
+    function reloadIsNeeded (groupsToAccept) {
+        // check if user rejected consent for initial groups
+        var initialGroups = cbConfig.initialState;
+        var previouslyAcceptedGroups = cbConfig.previouslyAccepted;
+        var groupsToCheck = initialGroups.concat(previouslyAcceptedGroups);
+
+        for (var i = 0; i < groupsToCheck.length; i++) {
+            var groupToCheck = groupsToCheck[i];
+
+            if (groupToCheck !== '' && groupsToAccept.indexOf(groupToCheck) === -1) {
+                if (cbConfig.debugMode) {
+                    console.log('🍪 Reload is needed due lack of: ', groupToCheck);
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function unlockEmbeds (cookieGroup) {
+        var iframesToUnlock = document.querySelectorAll('.pec-wrapper[data-consent-group-id="' + cookieGroup + '"]');
+
+        for (var i = 0; i < iframesToUnlock.length; i++) {
+            var iframeWrapper = iframesToUnlock[i];
+            iframeWrapper.querySelector('.pec-overlay').classList.remove('is-active');
+            iframeWrapper.querySelector('.pec-overlay').setAttribute('aria-hidden', 'true');
+            var iframe = iframeWrapper.querySelector('iframe');
+            iframe.setAttribute('src', iframe.getAttribute('data-consent-src'));
+        }
+    }
+
+    win.publiiEmbedConsentGiven = function (cookieGroup) {
+        // it will unlock embeds
+        allowCookieGroup(cookieGroup);
+
+        var checkbox = cbUI.popup.element.querySelector('input[type="checkbox"][data-group-name="' + cookieGroup + '"]');
+
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+
+        var groupsToAccept = getCurrentStateOfConsents();
+        storeConfiguration(groupsToAccept);
+
+        if (cbConfig.debugMode) {
+            console.log('🍪 Save new config: ', groupsToAccept.join(', '));
+        }
+    }
+})(window);</script></body></html>

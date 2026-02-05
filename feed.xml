@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-02-04T07:44:39+01:00</updated>
+    <updated>2026-02-05T08:38:12+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -841,8 +841,16 @@ resource "proxmox_vm_qemu" "mgmt-client" {
     If everything went fine you should now be able to ssh into the Registry VM through the ip 192.168.100.11 which we need for the next part to install the internal image registry as well as the Talos Image Factory.
   </p>
 
+    <h2 id="summary">
+      Summary
+    </h2>
+
   <p>
-    Stay tuned and leave me a <a href="https://tinyurl.com/4atbveyr">comment on LinkedIn</a> for any problems or suggestions you have.
+    At the end of this post all VMs (except for the Talos nodes) should be up and running now. We have a management client set up which is reachable from outside Proxmox and can reach the pfSense firewall which is configured too. The registry VM which is in another network can be reached from the management client through ssh.
+  </p>
+
+  <p>
+    That's all for now. Stay tuned and leave me a <a href="https://tinyurl.com/4atbveyr">comment on LinkedIn</a> for any problems or suggestions you have.
   </p>
 
   <p>

@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-02-26T08:15:05+01:00</updated>
+    <updated>2026-02-26T08:31:35+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -507,7 +507,7 @@ secureBoot:
   </p>
 
   <ul>
-    <li><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/" style="font-size: 1em;">Highly separated Talos Kubernetes Cluster: Part1 - Overview</a></li><li><a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/" style="font-size: 1em;">Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</a></li>
+    <li><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/" style="font-size: 1em;">Highly separated Talos Kubernetes Cluster: Part 1 - Overview</a></li><li><a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/" style="font-size: 1em;">Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</a></li>
   </ul>
 
   <p>
@@ -1365,7 +1365,7 @@ resource "proxmox_vm_qemu" "mgmt-client" {
   </p>
 
   <p>
-    <a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part1 - Overview</a>
+    <a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part 1 - Overview</a>
   </p>
             ]]>
         </content>

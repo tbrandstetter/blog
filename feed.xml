@@ -3,7 +3,7 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-02-26T08:10:04+01:00</updated>
+    <updated>2026-02-26T08:15:05+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
@@ -16,15 +16,18 @@
         </author>
         <link href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part3-pfsense-installation/"/>
         <id>https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part3-pfsense-installation/</id>
+        <media:content url="https://norocketscience.at/media/posts/9/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl.jpg" medium="image" />
 
         <updated>2026-02-25T21:07:00+01:00</updated>
             <summary type="html">
                 <![CDATA[
+                        <img src="https://norocketscience.at/media/posts/9/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl.jpg" alt="" />
                     Welcome back to another part of building an highly separated Talos Kubernetes cluster! In this part we will install the internal registry which avoids the direct connection to the internet for the Talos cluster. Furthermore, the Talos image factory will be hosted on premise too,&hellip;
                 ]]>
             </summary>
         <content type="html">
             <![CDATA[
+                    <p><img src="https://norocketscience.at/media/posts/9/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl.jpg" class="type:primaryImage" alt="" /></p>
                 
   <p>
     Welcome back to another part of building an highly separated Talos Kubernetes cluster! In this part we will install the internal registry which avoids the direct connection to the internet for the Talos cluster. Furthermore, the Talos image factory will be hosted on premise too, which allows us to create Talos boot images with own secure-boot key locally.

@@ -3,12 +3,754 @@
     <title>No Rocket Science</title>
     <link href="https://norocketscience.at/feed.xml" rel="self" />
     <link href="https://norocketscience.at" />
-    <updated>2026-02-26T08:31:35+01:00</updated>
+    <updated>2026-03-01T12:01:39+01:00</updated>
     <author>
         <name>Thomas Brandstetter</name>
     </author>
     <id>https://norocketscience.at</id>
 
+    <entry>
+        <title>Highly separated Talos Kubernetes Cluster: Part 4 - Talos Cluster installation </title>
+        <author>
+            <name>Thomas Brandstetter</name>
+        </author>
+        <link href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part4-mgt-client-installation/"/>
+        <id>https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part4-mgt-client-installation/</id>
+        <media:content url="https://norocketscience.at/media/posts/10/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl-2xl.jpg" medium="image" />
+
+        <updated>2026-03-01T11:07:00+01:00</updated>
+            <summary type="html">
+                <![CDATA[
+                        <img src="https://norocketscience.at/media/posts/10/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl-2xl.jpg" alt="" />
+                    In this part, we install Talos on Proxmox VMs, bootstrap the cluster, enable networking with Calico, and prepare HAProxy Ingress in external mode. Before starting, make sure you already read through the other blog posts of this series: Before we can install the Talos cluster&hellip;
+                ]]>
+            </summary>
+        <content type="html">
+            <![CDATA[
+                    <p><img src="https://norocketscience.at/media/posts/10/geranimo-OomNPPv1Rpk-unsplash-2xl-2xl-2xl.jpg" class="type:primaryImage" alt="" /></p>
+                
+  <p>
+    In this part, we install Talos on Proxmox VMs, bootstrap the cluster, enable networking with Calico, and prepare HAProxy Ingress in external mode.
+  </p>
+
+    <h1 id="prerequisites">
+      Prerequisites
+    </h1>
+
+  <p>
+    Before starting, make sure you already read through the other blog posts of this series:
+  </p>
+
+  <ul>
+    <li>A reachable and configured Proxmox environment</li><li>The <a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/">PFSense server</a> installed and configured</li><li>The <a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part3-pfsense-installation/">Registry server</a> installed and configured</li><li>The <a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/">Management client</a> with <code>talosctl</code> and <code>kubectl</code></li><li>The Talos installer image URL from your previous Talos Image Factory installation step</li>
+  </ul>
+
+    <h2 id="required-config-patches">
+      Required config patches
+    </h2>
+
+  <p>
+    Before we can install the Talos cluster we need to create patches for the generic installation step. Those changes reflect the on premise registry as well as the lab environment:
+  </p>
+<pre class="line-numbers  language-yaml"><code>#lab.yml
+machine:
+  install:
+    disk: /dev/sda
+cluster:
+  network:
+    cni:
+      name: none
+  discovery:
+    enabled: false
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+    - address: 10.10.100.1
+searchDomains: # optional
+    domains:
+        - srv.lab.internal
+    disableDefault: false
+---
+apiVersion: v1alpha1
+kind: TimeSyncConfig
+ntp:
+    servers:
+        - 10.10.100.1
+---
+apiVersion: v1alpha1
+kind: TrustedRootsConfig
+name: registry-ca
+certificates: |
+  -----BEGIN CERTIFICATE-----
+  "BUT in your ca.rt from the HARBOR installation"
+  -----END CERTIFICATE-----</code></pre>
+<pre class="line-numbers  language-yaml"><code>#registry_mirror.yml
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: docker.io
+endpoints:
+    - url: https://registry.mgmt.lab.internal/v2/proxy-docker.io
+      overridePath: true
+---
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: ghcr.io
+endpoints:
+    - url: https://registry.mgmt.lab.internal/v2/proxy-ghcr.io
+      overridePath: true
+---
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: gcr.io
+endpoints:
+    - url: https://registry.mgmt.lab.internal/v2/proxy-gcr.io
+      overridePath: true
+---
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: registry.k8s.io
+endpoints:
+    - url: https://registry.mgmt.lab.internal/v2/proxy-registry.k8s.io
+      overridePath: true
+---
+apiVersion: v1alpha1
+kind: RegistryMirrorConfig
+name: quay.io
+endpoints:
+    - url: https://registry.mgmt.lab.internal/v2/proxy-quay.io
+      overridePath: true
+</code></pre>
+
+    <h1 id="install-the-talos-cluster">
+      Install the Talos Cluster
+    </h1>
+
+    <h2 id="generate-talos-configs">
+      Generate Talos configs
+    </h2>
+
+  <p>
+    Create the Talos cluster configuration with your custom patches and install image:
+  </p>
+<pre class="line-numbers  language-bash"><code>talosctl gen config talos-proxmox-cluster https://10.10.100.10:6443 \
+--config-patch @lab.yml \
+--config-patch @registry_mirror.yml \
+--output-dir _out \
+--install-image registry.mgmt.lab.internal:9443/metal-installer-secureboot/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.12.1</code></pre>
+
+  <p>
+    Next, upload the Talos ISO to Proxmox. The ISO url can be taken from the Talos Image Factory (see last post).&nbsp;Keep the ISO filename consistent with your OpenTofu config references.
+  </p>
+
+    <h2 id="install-the-talos-vms">
+      Install the Talos VMs
+    </h2>
+
+  <p>
+    Now we are ready to provision the last needed VMs via OpenTofu. Ensure both node roles are enabled in your config:
+  </p>
+<pre class="line-numbers  language-html"><code>main.tf
+
+Control Plane
+resource "proxmox_vm_qemu" "controlplane" {
+  name        = "talos-cp-${count.index + 1}"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  agent       = 1
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 3
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 4
+    sockets = 1
+    type = "host"
+  }
+  memory   = 6144
+  scsihw   = "virtio-scsi-pci"
+  boot     = "order=scsi0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/metal-amd64-secureboot.iso"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "64G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr3"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "std"
+  }
+}
+
+Worker
+resource "proxmox_vm_qemu" "worker" {
+  name        = "talos-worker-${count.index +1}"
+  target_node = "proxmox2"
+  count       = 1
+  bios        = "ovmf"
+  agent       = 1
+  machine     = "q35"
+  skip_ipv6   = true
+
+  startup_shutdown {
+    order             = 4
+    shutdown_timeout  = -1
+    startup_delay     = -1
+  }
+
+  start_at_node_boot = true
+  cpu {
+    cores = 4
+    sockets = 1
+    type = "host"
+  }
+  memory   = 8172
+  scsihw   = "virtio-scsi-pci"
+  boot     = "order=scsi0;ide2"
+
+  disks {
+    ide {
+      ide2 {
+        cdrom {
+          iso = "local:iso/metal-amd64-secureboot.iso"
+        }
+      }
+    }
+    scsi {
+      scsi0 {
+        disk {
+          size     = "100G"
+          storage  = "data"
+        }
+      }
+    }
+  }
+
+  efidisk {
+    efitype = "4m"
+    storage = "data"
+  }
+
+  network {
+    model  = "virtio"
+    bridge = "vmbr3"
+    firewall = false
+    link_down = false
+    id = 1
+  }
+
+  rng {
+    period = 0
+    source = "/dev/urandom"
+  }
+
+  vga {
+    type   = "std"
+  }
+}
+
+</code></pre>
+
+  <p>
+    <br>Plan and apply the OpenTofu configuration as we did in the <a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/">second blog post</a> of this series.
+  </p>
+
+    <h2 id="provision-the-talos-cluster">
+      Provision the Talos Cluster
+    </h2>
+
+  <p>
+    Initialise the Control Plane:
+  </p>
+<pre class="line-numbers  language-bash"><code>talosctl apply-config --insecure --nodes 10.10.100.10 --file _out/controlplane.yaml</code></pre>
+
+  <p>
+    Initialise the Worker node:
+  </p>
+<pre class="line-numbers  language-bash"><code>talosctl apply-config --insecure --nodes 10.10.100.11 --file _out/worker.yaml</code></pre>
+
+  <p>
+    Bootstrap the first node:
+  </p>
+<pre class="line-numbers  language-bash"><code>export TALOSCONFIG=./talosconfig
+talosctl bootstrap -n 10.10.100.10 -e 10.10.100.10</code></pre>
+
+  <p>
+    Create the kube config
+  </p>
+<pre class="line-numbers  language-html"><code>talosctl kubeconfig -n 10.10.100.10 -e 10.10.100.10</code></pre>
+
+  <p>
+    Check if your cluster works
+  </p>
+<pre class="line-numbers  language-html"><code>kubectl get all --all-namespaces</code></pre>
+
+  <p>
+    If everything is fine and there are not errors in the output, go on to the next step.
+  </p>
+
+    <h1 id="install-calico">
+      Install Calico
+    </h1>
+
+  <p>
+    First of all, install the necessary crd elements:
+  </p>
+<pre class="line-numbers  language-bash"><code>kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.31.3/manifests/operator-crds.yaml</code></pre>
+
+  <p>
+    Next install the Calico operator:
+  </p>
+<pre class="line-numbers  language-bash"><code>kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.31.3/manifests/tigera-operator.yaml</code></pre>
+
+  <p>
+    Now we need to create the configuration so that Calico is working with PFSense as a BGP Peer:
+  </p>
+<pre class="line-numbers  language-yaml"><code># calico-installation.yaml
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    linuxDataplane: BPF
+    bpfNetworkBootstrap: Enabled
+    kubeProxyManagement: Enabled
+    ipPools:
+      - name: default-ipv4-pool
+        cidr: 10.244.0.0/16
+        encapsulation: None
+        natOutgoing: Disabled
+        nodeSelector: all()
+    # Enable BGP
+    bgp: Enabled
+
+---
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+  name: default
+spec: {}</code></pre>
+<pre class="line-numbers  language-yaml"><code># felix.yaml
+apiVersion: projectcalico.org/v3
+kind: FelixConfiguration
+metadata:
+  name: default
+spec:
+  cgroupV2Path: "/sys/fs/cgroup"
+  bpfEnabled: true
+  bpfLogLevel: Info
+  prometheusMetricsEnabled: true
+</code></pre>
+<pre class="line-numbers  language-yaml"><code># bgppeers.yaml
+apiVersion: projectcalico.org/v3
+kind: BGPPeer
+metadata:
+  name: pfsense
+spec:
+  peerIP: 10.10.100.1
+  asNumber: 64520
+</code></pre>
+<pre class="line-numbers  language-yaml"><code># bgpconfig.yaml
+apiVersion: projectcalico.org/v3
+kind: BGPConfiguration
+metadata:
+  name: default
+spec:
+  asNumber: 64512
+
+  # Required when peering with external routers
+  nodeToNodeMeshEnabled: false
+  logSeverityScreen: Info
+</code></pre>
+
+  <p>
+    Install the configuration:
+  </p>
+<pre class="line-numbers  language-bash"><code>kubectl apply -f calico-installation.yaml
+kubectl apply -f felix.yaml
+kubectl apply -f bgppeers.yaml
+kubectl apply -f bgpconfig.yaml</code></pre>
+
+  <p>
+    Now wait until Calico provision everything and startup the pods - the output of <code>kubectl get all --all-namespaces</code> should look like this:
+  </p>
+<pre class="line-numbers  language-bash"><code>NAMESPACE         NAME                                           READY   STATUS    RESTARTS      AGE
+calico-system     pod/calico-apiserver-7c7cf45574-jrq6m          1/1     Running   0             32d
+calico-system     pod/calico-apiserver-7c7cf45574-xxjsg          1/1     Running   0             32d
+calico-system     pod/calico-kube-controllers-7b8cb555c7-hj8br   1/1     Running   0             32d
+calico-system     pod/calico-node-fkgwz                          1/1     Running   0             32d
+calico-system     pod/calico-node-nwhnf                          1/1     Running   0             32d
+calico-system     pod/calico-typha-657d6fc4fb-4lzsl              1/1     Running   0             32d
+calico-system     pod/csi-node-driver-kwcv7                      2/2     Running   0             32d
+calico-system     pod/csi-node-driver-qjc8h                      2/2     Running   0             32d
+default           pod/app-898dbd577-hztxx                        1/1     Running   0             31d
+default           pod/helloworld-v1-699c6788b-ffkj7              1/1     Running   0             31d
+kube-system       pod/coredns-7859998f6-6xcrk                    1/1     Running   0             32d
+kube-system       pod/coredns-7859998f6-ghbmp                    1/1     Running   0             32d
+kube-system       pod/kube-apiserver-talos-cp-1                  1/1     Running   0             32d
+kube-system       pod/kube-controller-manager-talos-cp-1         1/1     Running   3 (32d ago)   32d
+kube-system       pod/kube-scheduler-talos-cp-1                  1/1     Running   3 (32d ago)   32d
+tigera-operator   pod/tigera-operator-6447996989-8j56s           1/1     Running   0             32d
+
+NAMESPACE       NAME                                      TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+calico-system   service/calico-api                        ClusterIP      10.102.61.204   &lt;none&gt;        443/TCP                  32d
+calico-system   service/calico-kube-controllers-metrics   ClusterIP      None            &lt;none&gt;        9094/TCP                 32d
+calico-system   service/calico-typha                      ClusterIP      10.105.23.48    &lt;none&gt;        5473/TCP                 32d
+default         service/example-service                   ClusterIP      10.108.111.25   &lt;none&gt;        80/TCP                   31d
+default         service/helloworld                        LoadBalancer   10.106.229.67   10.50.0.10    5000:31483/TCP           31d
+default         service/kubernetes                        ClusterIP      10.96.0.1       &lt;none&gt;        443/TCP                  32d
+kube-system     service/kube-dns                          ClusterIP      10.96.0.10      &lt;none&gt;        53/UDP,53/TCP,9153/TCP   32d
+
+NAMESPACE       NAME                             DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR                                AGE
+calico-system   daemonset.apps/calico-node       2         2         2       2            2           kubernetes.io/os=linux                       32d
+calico-system   daemonset.apps/csi-node-driver   2         2         2       2            2           kubernetes.io/os=linux                       32d
+kube-system     daemonset.apps/kube-proxy        0         0         0       0            0           operator.tigera.io/disable-kube-proxy=true   32d
+
+NAMESPACE         NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE
+calico-system     deployment.apps/calico-apiserver          2/2     2            2           32d
+calico-system     deployment.apps/calico-kube-controllers   1/1     1            1           32d
+calico-system     deployment.apps/calico-typha              1/1     1            1           32d
+default           deployment.apps/app                       1/1     1            1           31d
+default           deployment.apps/helloworld-v1             1/1     1            1           31d
+kube-system       deployment.apps/coredns                   2/2     2            2           32d
+tigera-operator   deployment.apps/tigera-operator           1/1     1            1           32d
+
+NAMESPACE         NAME                                                 DESIRED   CURRENT   READY   AGE
+calico-system     replicaset.apps/calico-apiserver-7c7cf45574          2         2         2       32d
+calico-system     replicaset.apps/calico-kube-controllers-7b8cb555c7   1         1         1       32d
+calico-system     replicaset.apps/calico-typha-657d6fc4fb              1         1         1       32d
+default           replicaset.apps/app-898dbd577                        1         1         1       31d
+default           replicaset.apps/helloworld-v1-699c6788b              1         1         1       31d
+kube-system       replicaset.apps/coredns-7859998f6                    2         2         2       32d
+tigera-operator   replicaset.apps/tigera-operator-6447996989           1         1         1       32d</code></pre>
+
+    <h2 id="install-the-haproxy-ingress-controller">
+      Install the HAProxy Ingress Controller
+    </h2>
+
+  <p>
+    Now switch to the HAProxy server and go on with the installation of the external HAProxy ingress controller.
+  </p>
+
+    <h2 id="install-haproxy-first">
+      Install HAProxy first
+    </h2>
+
+  <p>
+    Before we can install and use the HAProxy Ingress Controller the HAProxy itself must be installed. For this we need to add the available repository for Ubuntu:
+  </p>
+<pre class="line-numbers  language-bash"><code>sudo add-apt-repository ppa:vbernat/haproxy-3.2
+sudo apt update
+sudo apt install haproxy=3.2.\*
+sudo systemctl stop haproxy
+sudo systemctl disable haproxy</code></pre>
+
+  <p>
+    <strong>Take care</strong> of disabling the HAProxy service, because it can't coexist with the HAProxy ingress controller.
+  </p>
+
+    <h2 id="install-haproxy-ingress-controller">
+      Install HAProxy Ingress Controller
+    </h2>
+
+  <p>
+    The Ingress Controller needs a working Kube config to watch changes from the cluster. It then create or modifies the dynamic haproxy configuration which is the key point of this installation. For the lab, take the kube config from your management client under <code>/ubuntu/.kube</code>
+  </p>
+<pre class="line-numbers  language-bash"><code>sudo mkdir -p /root/.kube
+sudo cp config /root/.kube/config
+sudo chown -R root:root /root/.kube</code></pre>
+
+  <p>
+    To use port 80 and port 443 with the controller we need to change the cap configuration:
+  </p>
+<pre class="line-numbers  language-bash"><code>sudo setcap cap_net_bind_service=+ep /usr/sbin/haproxy</code></pre>
+
+  <p>
+    Now download the appropriate HAProxy ingress controller version. You see the support matrix on <a href="https://www.haproxy.com/documentation/kubernetes-ingress/community/installation/external-mode-on-premises/">this page</a>
+  </p>
+<pre class="line-numbers  language-bash"><code>wget https://github.com/haproxytech/kubernetes-ingress/releases/download/v3.2/haproxy-ingress-controller_3.2.6_Linux_x86_64.tar.gz
+tar -xzvf haproxy-ingress-controller_3.2.6_Linux_x86_64.tar.gz
+sudo cp ./haproxy-ingress-controller /usr/local/bin/</code></pre>
+
+  <p>
+    Create the file <code>/lib/systemd/system/haproxy-ingress.service</code> with the following content:
+  </p>
+<pre class="line-numbers  language-bash"><code>[Unit]
+Description="HAProxy Kubernetes Ingress Controller"
+Documentation=https://www.haproxy.com/
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/haproxy-ingress-controller --external --configmap=default/haproxy-kubernetes-ingress --program=/usr/sbin/haproxy --disable-ipv6 --ipv4-bind-address=0.0.0.0 --http-bind-port=80 --ingress.class=haproxy
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillMode=process
+KillSignal=SIGTERM
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+
+  <p>
+    Enable and start the service
+  </p>
+<pre class="line-numbers  language-bash"><code>sudo systemctl enable haproxy-ingress
+sudo systemctl start haproxy-ingress</code></pre>
+
+    <h2 id="install-bird">
+      Install Bird
+    </h2>
+
+  <p>
+    Bird is the internet routing daemon which gives the HAProxy Ingress controller the routes for the configuration.
+  </p>
+<pre class="line-numbers  language-bash"><code>sudo add-apt-repository -y ppa:cz.nic-labs/bird
+sudo apt update
+sudo apt install bird</code></pre>
+
+  <p>
+    Edit configuration under <code>/etc/bird/bird.conf</code>:
+  </p>
+<pre class="line-numbers  language-html"><code>router id 172.16.100.10; 
+log syslog all;
+
+# control plane node
+protocol bgp {
+   local 172.16.100.10 as 64513;
+   neighbor 172.16.100.1 as 64520;
+   # direct connection
+   direct;
+   import all;
+   export none;
+}
+
+# Inserts routes into the kernel routing table
+protocol kernel {
+   scan time 60;
+   export all;
+}
+
+# Gets information about network interfaces from the kernel
+protocol device {
+   scan time 60;
+}
+</code></pre>
+
+  <p>
+    Enable and start the Bird service:
+  </p>
+<pre class="line-numbers  language-html"><code>sudo systemctl enable bird
+sudo systemctl restart bird</code></pre>
+
+  <p>
+    Check the status with <code>sudo birdc show protocols</code>:
+  </p>
+<pre class="line-numbers  language-bash"><code>BIRD 1.6.8 ready.
+name     proto    table    state  since       info
+bgp1     BGP      master   up     2026-01-28  Established   
+kernel1  Kernel   master   up     2026-01-28  
+device1  Device   master   up     2026-01-28  </code></pre>
+
+  <p>
+    The routes from Talos should show up to in the routing table and the dynamic <code>haproxy.conf</code>:
+  </p>
+<pre class="line-numbers  language-bash"><code>ip r
+
+default via 172.16.100.1 dev eth0 proto static 
+10.244.9.128/26 via 172.16.100.1 dev eth0 proto bird 
+10.244.251.0/26 via 172.16.100.1 dev eth0 proto bird 
+172.16.100.0/24 dev eth0 proto kernel scope link src 172.16.100.10
+
+grep 10.244 /tmp/haproxy-ingress/etc/haproxy.cfg 
+
+server SRV_1 10.244.251.8:8080 enabled
+</code></pre>
+
+    <h2 id="deploy-an-example-app">
+      Deploy an example app
+    </h2>
+
+  <p>
+    Switch to the management client again. Before deploying the demo app, we need to install the custom ingress class for the HAProxy ingress controller:
+  </p>
+<pre class="line-numbers  language-yaml"><code># haproxy-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+name: haproxy
+spec:
+controller: haproxy.org/ingress-controller/haproxy</code></pre>
+
+  <p>
+    Apply it with <code>kubectl apply -f haproxy-ingress.yaml</code>
+  </p>
+
+  <p>
+    Create a deployment for the app:
+  </p>
+<pre class="line-numbers  language-yaml"><code># demoapp.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: app
+  name: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: app
+  template:
+    metadata:
+      labels:
+        run: app
+    spec:
+      containers:
+      - name: app
+        image: jmalloc/echo-server
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: example-service
+spec:
+    selector:
+      run: app
+    ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  # needed for older HAProxy Ingress versions!
+  #annotations:
+  #  haproxy.org/ingress.class: "haproxy"
+spec:
+  ingressClassName: haproxy
+  rules:
+  - host: "echo.example.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: example-service
+            port:
+              number: 80</code></pre>
+
+  <p>
+    Edit <code>/etc/hosts</code> on the management client:
+  </p>
+<pre class="line-numbers  language-html"><code>172.16.100.10    echo.example.com</code></pre>
+
+  <p>
+    Now you can start your browser and call http://echo.example.com
+  </p>
+
+    <figure class="post__image post__image--center">
+      <img loading="lazy" src="https://norocketscience.at/media/posts/10/browser.jpg" height="482" width="1508" alt=""  sizes="(max-width: 1920px) 100vw, 1920px" srcset="https://norocketscience.at/media/posts/10/responsive/browser-xs.jpg 640w ,https://norocketscience.at/media/posts/10/responsive/browser-sm.jpg 768w ,https://norocketscience.at/media/posts/10/responsive/browser-md.jpg 1024w ,https://norocketscience.at/media/posts/10/responsive/browser-lg.jpg 1366w ,https://norocketscience.at/media/posts/10/responsive/browser-xl.jpg 1600w ,https://norocketscience.at/media/posts/10/responsive/browser-2xl.jpg 1920w">
+      
+    </figure>
+
+    <h2 id="ready-for-more">
+      Ready for more
+    </h2>
+
+  <p>
+    We have successfully finished the installation of a Talos Cluster on premise with a connected registry which is on premise too. The cluster don't has a direct connection to the internet and the registry is caching needed images. Furthermore the Talos images which are needed to operate the Talos cluster are co signed and the bootstrap Talos image is using or own secure boot keys. In ongoing blog posts I'll show how to update the cluster with updated images and enhance the productivity with an administration ui and observability functionality.
+  </p>
+
+    <h2 id="common-pitfalls-worth-checking-early">
+      Common Pitfalls (Worth checking early)
+    </h2>
+
+  <ul>
+    <li>Installer image url typos</li><li>Wrong file path for worker config (`_out/worker.yaml`)</li><li>ISO filename mismatch between Proxmox and OpenTofu config</li><li>Forgetting to create `IngressClass` before applying app Ingress objects</li><li>Applying Calico custom resources before operator/CRDs are ready</li>
+  </ul>
+
+    <h2 id="quick-validation-checklist">
+      Quick validation checklist
+    </h2>
+
+  <ul>
+    <li><code>talosctl health</code> reports healthy control plane and worker</li><li><code>kubectl get nodes</code> shows all nodes `Ready`</li><li>Calico pods are running in `calico-system` / `tigera-operator` namespaces</li><li>Ingress controller pods/services are healthy</li><li>Example app ingress is admitted and reachable</li>
+  </ul>
+
+  <p>
+    That's all for now. Stay tuned and leave me a comment on <a href="https://tinyurl.com/4atbveyr">LinkedIn</a> for any problems or suggestions you have.
+  </p>
+
+  <p>
+    Related posts:
+  </p>
+
+  <ul>
+    <li><a href="https://norocketscience.at/supercharged-air-gapped-talos-kubernetes-cluster-an-overview/">Highly separated Talos Kubernetes Cluster: Part 1 - Overview</a></li><li><a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part2-vm-installation/">Highly separated Talos Kubernetes Cluster: Part 2 - VM installation</a></li><li><a href="https://norocketscience.at/highly-separated-talos-kubernetes-cluster-part3-pfsense-installation/">Highly separated Talos Kubernetes Cluster: Part 3 - Registry installation</a></li>
+  </ul>
+
+  <p>
+    
+  </p>
+            ]]>
+        </content>
+    </entry>
     <entry>
         <title>Highly separated Talos Kubernetes Cluster: Part 3 - Registry installation</title>
         <author>

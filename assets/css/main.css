@@ -78,9 +78,6 @@ body {
 }
 
 a {
-  text-decoration: none;
-}
-a {
   color: var(--link-color);
   -webkit-transition: all 0.24s ease-out;
   transition: all 0.24s ease-out;
@@ -93,6 +90,9 @@ a:active {
 }
 a:focus {
   outline: none;
+}
+a {
+  text-decoration: none;
 }
 
 .invert {
@@ -481,8 +481,6 @@ select {
   padding: calc(var(--baseline) * 1.2) calc(var(--baseline) * 3);
   vertical-align: middle;
   width: 100%;
-  -webkit-appearance: none;
-  -moz-appearance: none;
 }
 @media all and (min-width: 37.5em) {
   [type=text],
@@ -495,6 +493,17 @@ select {
   select {
     width: auto;
   }
+}
+[type=text],
+[type=url],
+[type=tel],
+[type=number],
+[type=email],
+[type=search],
+textarea,
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 [type=text]:focus,
 [type=url]:focus,
@@ -1532,13 +1541,6 @@ textarea {
   margin-top: calc(var(--baseline) * 2);
 }
 .bio__desc a {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
-  -webkit-text-decoration-skip: ink;
-          text-decoration-skip-ink: auto;
-}
-.bio__desc a {
   color: var(--link-color-hover);
   -webkit-transition: all 0.24s ease-out;
   transition: all 0.24s ease-out;
@@ -1551,6 +1553,13 @@ textarea {
 }
 .bio__desc a:focus {
   outline: none;
+}
+.bio__desc a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  -webkit-text-decoration-skip: ink;
+          text-decoration-skip-ink: auto;
 }
 
 .content__nav {
@@ -1660,7 +1669,7 @@ textarea {
   overflow: hidden;
 }
 
-.post__image:not(.post__image--wide):not(.post__image--full) {
+.post__image:not(.post__image--wide):not(.post__image--full):not(.post__image--center) {
   display: inline-block;
   margin-bottom: calc(var(--baseline) * 2 + 0.25vw);
 }
